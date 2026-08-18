@@ -33,15 +33,25 @@ def _update() -> None:
         print("     Corre 'update.sh' manualmente desde tu checkout del repo.\n")
         return
 
-    print(f"\n  🔄 Actualizando desde git en {home} ...\n")
+    print("\n  🔄 Actualizando...")
     logger.debug("git -C %s pull --ff-only", home)
-    result = subprocess.run(["git", "-C", home, "pull", "--ff-only"])
+    result = subprocess.run(["git", "-C", home, "pull", "--ff-only"], capture_output=True, text=True)
+    logger.debug("git pull stdout: %s", result.stdout.strip())
+    logger.debug("git pull stderr: %s", result.stderr.strip())
     if result.returncode != 0:
-        print("\n  ❌ Falló 'git pull'. Revisa el mensaje de arriba.\n")
+        print("\n  ❌ Falló la actualización.")
+        print(f"     {(result.stderr or result.stdout).strip()}\n")
         return
 
-    subprocess.run([sys.executable, "-m", "pip", "install", "-e", home, "--quiet"])
-    print("\n  ✅ Actualizado.\n")
+    pip_result = subprocess.run([sys.executable, "-m", "pip", "install", "-e", home, "--quiet"], capture_output=True, text=True)
+    logger.debug("pip install stdout: %s", pip_result.stdout.strip())
+    logger.debug("pip install stderr: %s", pip_result.stderr.strip())
+    if pip_result.returncode != 0:
+        print("\n  ❌ Falló la reinstalación del paquete.")
+        print(f"     {pip_result.stderr.strip()}\n")
+        return
+
+    print("\n  ✅ Actualización completada.\n")
 
 
 def main() -> None:
@@ -71,7 +81,8 @@ def main() -> None:
             choice = input("  Opción: ").strip().upper()
             logger.debug("Menú principal -> opción=%r", choice)
             if choice == "Q":
-                print("\n👋 Hasta luego.\n")
+                print("\n👋 Hasta luego.")
+                print("   aws-sso-sync — Saúl Quintero (saulquintero.com.co)\n")
                 sys.exit(0)
             elif choice == "1":
                 menu_login.run(config.load())

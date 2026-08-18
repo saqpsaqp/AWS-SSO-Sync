@@ -140,6 +140,12 @@ Runs `git pull --ff-only` in the checkout you installed from (tracked via the
 then reinstalls the package in editable mode. Equivalent to running
 `./update.sh` from your checkout directory.
 
+The menu only shows `🔄 Actualizando...` followed by `✅ Actualización
+completada` — `git`/`pip`'s own output is suppressed, not shown on screen.
+If something fails, the relevant error line is printed; run with
+`--logs-enabled` (see below) to capture the full `git pull`/`pip install`
+output for troubleshooting either way.
+
 If `AWS_SSO_SYNC_HOME` isn't set (e.g. you installed some other way), the
 menu tells you to run `update.sh` manually.
 

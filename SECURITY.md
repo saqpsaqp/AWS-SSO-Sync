@@ -42,3 +42,18 @@ on this repository instead, or contact the maintainer directly. Include:
   Claude Code sessions, and pattern-based scanning can miss things.
 - `install.sh` backs up any existing `~/.aws/credentials` before this tool
   ever writes to it.
+- **Static analysis on every push/PR**: `.github/workflows/ci.yml` runs
+  [ruff](https://docs.astral.sh/ruff/) lint (including its `S` security
+  rule set, ported from `flake8-bandit`) and format checks;
+  `.github/workflows/codeql.yml` runs GitHub's [CodeQL](https://codeql.github.com/)
+  semantic analysis on push, PR, and weekly on a schedule. Both post
+  findings as PR checks / the repo's Security tab.
+- **Dependency updates**: `.github/dependabot.yml` keeps the GitHub
+  Actions versions in the workflows above current. There's no Python
+  dependency file to scan — the package has zero runtime dependencies
+  beyond the standard library and the AWS CLI itself.
+- **Recommended, not yet enabled by this repo's files** (these are GitHub
+  repo settings, not something a committed file can turn on): enable
+  [secret scanning and push protection](../../settings/security_analysis)
+  under Settings → Code security, and branch protection on `master`
+  requiring the CI/CodeQL checks and a PR review before merging.

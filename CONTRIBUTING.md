@@ -54,14 +54,45 @@ public. A best-effort content-scanning hook
 when working through Claude Code, but review your own diffs before
 committing regardless.
 
+## Releasing
+
+Versioning follows [SemVer](https://semver.org/) (`vMAJOR.MINOR.PATCH`).
+`aws_sso_sync/__init__.py`'s `__version__` is the single source of truth —
+`pyproject.toml` reads it dynamically (`dynamic = ["version"]`), so there's
+only one place to bump.
+
+1. Open a PR that bumps `__version__` in `aws_sso_sync/__init__.py`. Merge
+   it like any other change (see above).
+2. On an up-to-date `master`, tag and push the tag:
+   ```bash
+   git checkout master
+   git pull --ff-only origin master
+   git tag v1.2.3
+   git push origin v1.2.3
+   ```
+   Pushing a tag isn't a push to `master`/`main`, so it isn't affected by
+   the PR-only rule or `git-push-guard.sh` above.
+3. `.github/workflows/release.yml` picks up the `v*.*.*` tag push and
+   creates the GitHub Release automatically, with notes generated from the
+   merged PRs since the last tag — nothing further to do.
+
 ## Local development
 
-No test suite, build step, or linter is configured. Before opening a PR:
+No test suite is configured — this is an interactive CLI with no
+automated coverage of the menu flows themselves; manually walk through
+whatever you touched (see `docs/USAGE.md`) before opening a PR.
+
+Linting and formatting use [ruff](https://docs.astral.sh/ruff/)
+(config in `pyproject.toml`'s `[tool.ruff]`). Before opening a PR:
 
 ```bash
 python3 -m py_compile aws_sso_sync/*.py
+pip install ruff
+ruff check .
+ruff format .
 ```
 
-...and manually walk through the menus you touched (see `docs/USAGE.md`)
-— this is an interactive CLI, there's no automated coverage of the menu
-flows themselves.
+`.github/workflows/ci.yml` runs the same three checks (syntax, `ruff
+check`, `ruff format --check`) on every PR — a red CI check means one of
+these would have failed locally too. See [SECURITY.md](SECURITY.md) for
+the rest of what runs automatically (CodeQL, Dependabot).
