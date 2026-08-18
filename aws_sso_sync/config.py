@@ -62,7 +62,11 @@ def load() -> dict[str, Tenant]:
     for name, tenant in tenants.items():
         logger.debug(
             "  %s: sso_session=%r sso_start_url=%r sso_region=%r cuentas=%d",
-            name, tenant.sso_session, tenant.sso_start_url, tenant.sso_region, len(tenant.accounts),
+            name,
+            tenant.sso_session,
+            tenant.sso_start_url,
+            tenant.sso_region,
+            len(tenant.accounts),
         )
     return tenants
 

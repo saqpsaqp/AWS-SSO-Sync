@@ -1,5 +1,9 @@
 # aws-sso-sync
 
+[![CI](https://github.com/saqpsaqp/AWS-SSO-Sync/actions/workflows/ci.yml/badge.svg)](https://github.com/saqpsaqp/AWS-SSO-Sync/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/saqpsaqp/AWS-SSO-Sync/actions/workflows/codeql.yml/badge.svg)](https://github.com/saqpsaqp/AWS-SSO-Sync/actions/workflows/codeql.yml)
+[![Latest release](https://img.shields.io/github/v/release/saqpsaqp/AWS-SSO-Sync)](https://github.com/saqpsaqp/AWS-SSO-Sync/releases/latest)
+
 Interactive CLI that logs into AWS SSO and exports session credentials into
 `~/.aws/credentials` under long-lived profile names, so tools that don't
 understand `sso_session`/`sso_start_url` config (Terraform, older SDKs, etc.)

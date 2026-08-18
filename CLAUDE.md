@@ -20,7 +20,7 @@ aws-sso-sync --logs-enabled  # same, plus a debug log under ~/.config/aws-sso-sy
 python3 -m aws_sso_sync
 ```
 
-It's interactive. There is no test suite, build step, or linter configured in this repo — verification is `python3 -m py_compile aws_sso_sync/*.py` plus manual menu walkthroughs (see `docs/USAGE.md`).
+It's interactive. There is no test suite or build step — verification is `python3 -m py_compile aws_sso_sync/*.py` plus manual menu walkthroughs (see `docs/USAGE.md`). Linting/formatting is `ruff` (config in `pyproject.toml`'s `[tool.ruff]`, enforced by `.github/workflows/ci.yml`) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Architecture
 
@@ -33,7 +33,7 @@ It's interactive. There is no test suite, build step, or linter configured in th
 - **`aws_sso_sync/browser.py`** — WSL2-only Chrome detection (`is_wsl()` checks `/proc/version`); on native Linux/Mac it leaves `$BROWSER` alone and lets `aws sso login` open the system default browser.
 - **`aws_sso_sync/sso.py`** — `sso_login()`, unchanged from the original script's behavior.
 - **`aws_sso_sync/preflight.py`** — `check_aws_cli()`, aborts with install instructions if `aws` is missing or isn't v2 (`aws configure export-credentials` doesn't exist in v1). Runs at CLI startup and is duplicated in `install.sh` for the pre-install check.
-- **`aws_sso_sync/cli.py`** — main menu (Sincronizar / Mantenimiento / Actualizar aplicación / Salir); the update option runs `git pull --ff-only` in `$AWS_SSO_SYNC_HOME` (set by the `install.sh`-generated launcher) followed by an editable reinstall. Parses `--logs-enabled` via `argparse` and calls `logging_setup.setup_logging()` before anything else. Each main-loop iteration is wrapped in `try/except KeyboardInterrupt` — nothing in `menu_login.py`/`menu_maintenance.py` catches it, so Ctrl+C at any prompt, however deep in a submenu, propagates straight up to this one handler and lands back at the main menu instead of crashing with a traceback.
+- **`aws_sso_sync/cli.py`** — main menu (Sincronizar / Mantenimiento / Actualizar aplicación / Salir); the update option runs `git pull --ff-only` in `$AWS_SSO_SYNC_HOME` (set by the `install.sh`-generated launcher) followed by an editable reinstall. Both subprocess calls run with `capture_output=True` — only a short "Actualizando..." / "✅ Actualización completada" (or the error text on failure) is printed; the raw `git`/`pip` output only goes to the `--logs-enabled` debug log, never the screen. Parses `--logs-enabled` via `argparse` and calls `logging_setup.setup_logging()` before anything else. Each main-loop iteration is wrapped in `try/except KeyboardInterrupt` — nothing in `menu_login.py`/`menu_maintenance.py` catches it, so Ctrl+C at any prompt, however deep in a submenu, propagates straight up to this one handler and lands back at the main menu instead of crashing with a traceback. The startup `check_aws_cli()` call (before the loop even starts) is wrapped separately, since it isn't covered by the loop's handler. The farewell message on "Salir" carries the author credit (`saulquintero.com.co`) — keep it if this message is ever restructured.
 - **`aws_sso_sync/logging_setup.py`** — `setup_logging(enabled)` wires the `aws_sso_sync` logger to a timestamped file under `~/.config/aws-sso-sync/logs/` when `--logs-enabled` is passed, otherwise attaches a `NullHandler` so every `logger.debug(...)` call elsewhere is a cheap no-op. Every module gets its logger via `logging.getLogger(__name__)` and relies on propagation to this one — never log secrets (tokens/keys), only which files/commands were touched and why a decision was made (e.g. `sso_discovery.py`'s cache-file-by-cache-file skip reasons).
 
 ## Installer / updater
@@ -43,6 +43,18 @@ It's interactive. There is no test suite, build step, or linter configured in th
 ## Adding a new tenant/account
 
 Don't edit code — use the "Mantenimiento" menu (`aws_sso_sync/menu_maintenance.py`) from the running CLI. It writes both `~/.config/aws-sso-sync/config.json` and the corresponding `~/.aws/config` blocks.
+
+## Versioning & releases
+
+`aws_sso_sync/__init__.py`'s `__version__` is the single source of truth (SemVer, `vMAJOR.MINOR.PATCH`); `pyproject.toml` reads it dynamically (`dynamic = ["version"]`, `[tool.setuptools.dynamic]`) — never hardcode a version string in `pyproject.toml` again. Bumping it and pushing a `vX.Y.Z` git tag triggers `.github/workflows/release.yml`, which creates the GitHub Release automatically (`gh release create --generate-notes`). Full process in [CONTRIBUTING.md](CONTRIBUTING.md#releasing).
+
+## CI / security tooling
+
+- **`.github/workflows/ci.yml`** — on every push/PR to `master`: `py_compile` syntax check, `ruff check`, `ruff format --check`.
+- **`.github/workflows/codeql.yml`** — GitHub CodeQL semantic analysis on push/PR/weekly schedule.
+- **`.github/dependabot.yml`** — keeps the Actions pinned in the workflows above current (there's no Python dependency file to scan; the package has zero runtime deps).
+- Ruff's `S` rule set (ported from `flake8-bandit`) covers basic SAST; `S603`/`S607` are ignored project-wide in `pyproject.toml` with a comment explaining why — they'd otherwise flag every `subprocess.run(["aws", ...])`/`["git", ...])` call, which is this tool's whole purpose, not a vulnerability.
+- Repo-level secret scanning / push protection / branch protection are GitHub repo *settings*, not files — see [SECURITY.md](SECURITY.md) for what's recommended but not yet turned on.
 
 ## Contribution policy (must follow)
 

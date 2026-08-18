@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aws-sso-sync"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Interactive CLI to log into AWS SSO and sync session credentials into ~/.aws/credentials, per tenant and account."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -14,5 +14,23 @@ authors = [{ name = "Saul Quintero" }]
 [project.scripts]
 aws-sso-sync = "aws_sso_sync.cli:main"
 
+[tool.setuptools.dynamic]
+version = { attr = "aws_sso_sync.__version__" }
+
 [tool.setuptools.packages.find]
 include = ["aws_sso_sync*"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 140
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "S", "UP"]
+ignore = [
+  # This tool's entire job is shelling out to well-known CLIs (aws, git,
+  # pip) with argument lists (never shell=True) - S603/S607 flag that
+  # pattern unconditionally, which is the safe pattern they'd otherwise
+  # recommend switching to.
+  "S603", # subprocess call: check for execution of untrusted input
+  "S607", # starting a process with a partial executable path
+]

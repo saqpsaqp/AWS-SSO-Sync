@@ -141,8 +141,13 @@ def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, 
 def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bool:
     """Picks account + role from what the SSO portal actually grants. Returns False to fall back to manual entry."""
     tenant = tenants[tenant_name]
-    logger.debug("Descubrir cuentas/roles para tenant=%r sso_start_url=%r sso_session=%r sso_region=%r",
-                 tenant_name, tenant.sso_start_url, tenant.sso_session, tenant.sso_region)
+    logger.debug(
+        "Descubrir cuentas/roles para tenant=%r sso_start_url=%r sso_session=%r sso_region=%r",
+        tenant_name,
+        tenant.sso_start_url,
+        tenant.sso_session,
+        tenant.sso_region,
+    )
 
     token = sso_discovery.find_cached_token(tenant.sso_start_url)
     if not token:

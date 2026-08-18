@@ -53,5 +53,9 @@ def ensure_profile(profile_name: str, session_name: str, account_id: str, role_n
     _write(config)
     logger.debug(
         "Escrito [%s] en %s (sso_session=%r, sso_account_id=%r, sso_role_name=%r)",
-        section, AWS_CONFIG_FILE, session_name, account_id, role_name,
+        section,
+        AWS_CONFIG_FILE,
+        session_name,
+        account_id,
+        role_name,
     )
