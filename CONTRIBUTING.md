@@ -6,11 +6,17 @@
 one-line fixes — goes through:
 
 ```bash
+git checkout master
+git pull --ff-only origin master
 git checkout -b my-change
 # ... commit your work ...
 git push -u origin my-change
 gh pr create
 ```
+
+Always create feature branches from an up-to-date `master`. Pull (fast-forward
+only) before branching so the new work starts from the current default tip,
+not a stale local copy.
 
 This applies to everyone, including automated tools. In this repo, a
 project-level Claude Code hook (`.claude/hooks/git-push-guard.sh`, wired up
