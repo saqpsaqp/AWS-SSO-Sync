@@ -48,6 +48,8 @@ The config starts empty on first run — nothing is pre-populated.
 [Q] Salir
 ```
 
+**Ctrl+C cancela y vuelve al menú principal** desde cualquier punto — no importa qué tan adentro de un submenú o en qué campo estés (ej. a mitad de "Agregar cuenta/rol", escribiendo la etiqueta). Nada queda a medio guardar: `config.json` y `~/.aws/config` solo se escriben al completar un flujo, así que cancelar con Ctrl+C nunca deja un registro parcial.
+
 ## 1. Sincronizar credenciales (login)
 
 1. Pick a tenant by number, or `[A]` to sync every tenant's every account.
