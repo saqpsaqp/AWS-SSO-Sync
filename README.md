@@ -25,8 +25,8 @@ selected accounts.
 ## Install
 
 ```bash
-git clone https://github.com/<your-user>/aws-sso-sync.git
-cd aws-sso-sync
+git clone https://github.com/saqpsaqp/AWS-SSO-Sync.git
+cd AWS-SSO-Sync
 ./install.sh
 ```
 
