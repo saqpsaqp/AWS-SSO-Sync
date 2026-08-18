@@ -56,7 +56,7 @@ def main() -> None:
 
     while True:
         print("\n╔══════════════════════════════════╗")
-        print("║       AWS SSO Credential Sync     ║")
+        print("║       AWS SSO Credential Sync    ║")
         print("╚══════════════════════════════════╝\n")
         print("  [1] Sincronizar credenciales (login)")
         print("  [2] Mantenimiento (tenants y cuentas)")
