@@ -43,3 +43,12 @@ It's interactive. There is no test suite, build step, or linter configured in th
 ## Adding a new tenant/account
 
 Don't edit code — use the "Mantenimiento" menu (`aws_sso_sync/menu_maintenance.py`) from the running CLI. It writes both `~/.config/aws-sso-sync/config.json` and the corresponding `~/.aws/config` blocks.
+
+## Contribution policy (must follow)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) for the full text. Summary, enforced technically where noted:
+
+- **No direct push/merge to `master`.** Every change goes through a branch + pull request (`gh pr create`), even for a single-line fix. `.claude/hooks/git-push-guard.sh` (a project `PreToolUse`/`Bash` hook, see `.claude/settings.json`) blocks direct pushes to `master`/`main` and any `--force`/`-f` push at the tool-call level — but the rule applies regardless of whether the hook is active for a given session.
+- **Never commit/push real secrets.** No real AWS access keys, session tokens, or private key files (`.pem`/`.key`/`.pfx`/`.p12`) — this is a public repo. `.claude/hooks/git-secret-guard.sh` does a best-effort content scan on `git commit`/`git push` and blocks matches, but don't rely on it as the only safeguard.
+- **Update this file (`CLAUDE.md`) in the same PR whenever you add or change a feature** — new modules, CLI flags, menu options, config fields, etc. This file goes stale fast otherwise.
+- **Update `docs/USAGE.md` (and `README.md`'s menu summary if relevant) in the same PR** whenever a menu, flag, or config format changes. Users only have these two docs — there's no in-app help beyond the menus themselves.
