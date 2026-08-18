@@ -15,6 +15,7 @@ The package has no runtime dependencies beyond the Python 3 standard library and
 ```bash
 ./install.sh          # one-time: creates .venv/, installs editable, wires ~/.local/bin/aws-sso-sync
 aws-sso-sync           # after install.sh, and ~/.local/bin on PATH
+aws-sso-sync --logs-enabled  # same, plus a debug log under ~/.config/aws-sso-sync/logs/
 # or, without installing:
 python3 -m aws_sso_sync
 ```
