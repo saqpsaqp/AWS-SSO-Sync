@@ -19,7 +19,15 @@ SSO_CACHE_DIR = Path.home() / ".aws" / "sso" / "cache"
 
 
 def _parse_expiry(expires_at: str) -> datetime:
-    return datetime.strptime(expires_at.replace("UTC", ""), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    # botocore has used both a "...Z" suffix and a legacy "...UTC" suffix
+    # across versions; normalize either into something fromisoformat takes.
+    text = expires_at.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    elif text.endswith("UTC"):
+        text = text[: -len("UTC")]
+    dt = datetime.fromisoformat(text)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def find_cached_token(sso_start_url: str) -> str | None:
