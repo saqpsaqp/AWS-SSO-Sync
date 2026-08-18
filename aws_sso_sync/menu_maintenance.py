@@ -61,6 +61,16 @@ def _pick_tenant(tenants: dict[str, Tenant]) -> str | None:
     return None
 
 
+def _find_duplicate(tenant: Tenant, account_id: str, sso_role_name: str) -> Account | None:
+    """An (account_id, sso_role_name) pair identifies a unique AWS account+role
+    within a tenant - the label is just a display name and shouldn't factor in
+    (e.g. 'Core-Networking-Env' vs 'core-networking-env' is the same account+role)."""
+    for acc in tenant.accounts:
+        if acc.account_id == account_id and acc.sso_role_name == sso_role_name:
+            return acc
+    return None
+
+
 def _list_accounts(tenant_name: str, tenant: Tenant) -> list[Account]:
     if not tenant.accounts:
         print(f"\n  {tenant_name} no tiene cuentas.\n")
@@ -98,8 +108,15 @@ def _create_tenant(tenants: dict[str, Tenant]) -> None:
         _create_account(tenants, name)
 
 
-def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, role: str, account_id: str, sso_role_name: str) -> None:
+def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, role: str, account_id: str, sso_role_name: str) -> bool:
     tenant = tenants[tenant_name]
+
+    duplicate = _find_duplicate(tenant, account_id, sso_role_name)
+    if duplicate:
+        print(f"\n  ⚠️  Ya existe '{duplicate.label}' para la cuenta {account_id} + rol '{sso_role_name}' en {tenant_name}.")
+        print(f"     Perfil existente: {duplicate.sso_profile} / {duplicate.credentials_profile}. No se agregó un duplicado.\n")
+        return False
+
     slug = slugify(label)
     tenant_slug = slugify(tenant_name)
     sso_profile = _input("Nombre de perfil SSO en ~/.aws/config", f"{tenant_slug}-{slug}-sso")
@@ -118,6 +135,7 @@ def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, 
     )
     save(tenants)
     print(f"\n  ✅ Cuenta '{label}' agregada a {tenant_name}. Bloque [profile {sso_profile}] escrito en ~/.aws/config.\n")
+    return True
 
 
 def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bool:
@@ -170,6 +188,12 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
     account_id = account["accountId"]
     role_name = role["roleName"]
     account_name = account.get("accountName", account_id)
+
+    duplicate = _find_duplicate(tenant, account_id, role_name)
+    if duplicate:
+        print(f"\n  ⚠️  Ya existe '{duplicate.label}' para la cuenta {account_id} + rol '{role_name}' en {tenant_name}.")
+        print(f"     Perfil existente: {duplicate.sso_profile} / {duplicate.credentials_profile}. No se agregó un duplicado.\n")
+        return True
 
     print()
     label = _input("Etiqueta visible", account_name)
@@ -294,6 +318,32 @@ def _view_config(tenants: dict[str, Tenant]) -> None:
     print()
 
 
+def _find_duplicates(tenants: dict[str, Tenant]) -> None:
+    print("\n  ── Detectar duplicados (misma cuenta + mismo rol) ──\n")
+    found_any = False
+    for tenant_name, tenant in tenants.items():
+        groups: dict[tuple[str, str], list[Account]] = {}
+        for acc in tenant.accounts:
+            groups.setdefault((acc.account_id, acc.sso_role_name), []).append(acc)
+
+        dup_groups = {key: accs for key, accs in groups.items() if len(accs) > 1}
+        if not dup_groups:
+            continue
+
+        found_any = True
+        print(f"  {tenant_name}:")
+        for (account_id, sso_role_name), accs in dup_groups.items():
+            print(f"    Cuenta {account_id} + rol '{sso_role_name}' ({len(accs)} registros):")
+            for acc in accs:
+                print(f"      - {acc.label} → {acc.sso_profile} / {acc.credentials_profile}")
+        print()
+
+    if not found_any:
+        print("  No se encontraron duplicados.\n")
+    else:
+        print("  Usa [4] Eliminar cuenta para quitar los registros redundantes que no quieras conservar.\n")
+
+
 def run(tenants: dict[str, Tenant]) -> None:
     while True:
         print("\n  ── Mantenimiento ──\n")
@@ -303,6 +353,7 @@ def run(tenants: dict[str, Tenant]) -> None:
         print("  [4] Eliminar cuenta")
         print("  [5] Eliminar tenant")
         print("  [6] Ver configuración actual")
+        print("  [7] Detectar duplicados (cuenta + rol)")
         print("  [Q] Volver\n")
 
         choice = input("  Opción: ").strip().upper()
@@ -320,5 +371,7 @@ def run(tenants: dict[str, Tenant]) -> None:
             _delete_tenant(tenants)
         elif choice == "6":
             _view_config(tenants)
+        elif choice == "7":
+            _find_duplicates(tenants)
         else:
             print("  ⚠️  Opción inválida.\n")

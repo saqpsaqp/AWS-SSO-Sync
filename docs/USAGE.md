@@ -48,6 +48,8 @@ The config starts empty on first run — nothing is pre-populated.
 [Q] Salir
 ```
 
+**Ctrl+C cancela y vuelve al menú principal** desde cualquier punto — no importa qué tan adentro de un submenú o en qué campo estés (ej. a mitad de "Agregar cuenta/rol", escribiendo la etiqueta). Nada queda a medio guardar: `config.json` y `~/.aws/config` solo se escriben al completar un flujo, así que cancelar con Ctrl+C nunca deja un registro parcial.
+
 ## 1. Sincronizar credenciales (login)
 
 1. Pick a tenant by number, or `[A]` to sync every tenant's every account.
@@ -75,6 +77,7 @@ matches how the original single-file script behaved.
 [4] Eliminar cuenta
 [5] Eliminar tenant
 [6] Ver configuración actual
+[7] Detectar duplicados (cuenta + rol)
 [Q] Volver
 ```
 
@@ -102,6 +105,13 @@ matches how the original single-file script behaved.
   `[profile <sso_profile>]` into `~/.aws/config` (referencing the tenant's
   `sso-session`) and appends the
   account to `config.json`.
+
+  Before registering, it checks that this **AWS account ID + IAM role
+  name** combination isn't already registered in the tenant — the label is
+  just a display name and doesn't count, so adding `core-networking-env`
+  when `Core-Networking-Env` already points at the same account+role is
+  rejected as a duplicate (you'll see which existing entry it collided
+  with) instead of creating a redundant second registration.
 - **Editar cuenta** — lets you change label, role tag, and
   `credentials_profile`. Changing `sso_profile`/`account_id` requires
   deleting and recreating the account (they're tied to the provisioned
@@ -112,6 +122,12 @@ matches how the original single-file script behaved.
   need them.
 - **Ver configuración actual** — prints every tenant and account currently
   registered.
+- **Detectar duplicados** — scans every tenant's accounts for any
+  `(account_id, sso_role_name)` pair that already appears more than once
+  (e.g. config edited by hand, or created before this check existed) and
+  lists every entry in each group so you can pick which one(s) to remove
+  with **Eliminar cuenta**. This is a read-only report — it doesn't delete
+  anything itself.
 
 Provisioning writes to `~/.aws/config` also rewrite that file in full via
 `configparser`, so manual comments/formatting in it won't be preserved
