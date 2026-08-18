@@ -55,27 +55,34 @@ def main() -> None:
     check_aws_cli()
 
     while True:
-        print("\n╔══════════════════════════════════╗")
-        print("║       AWS SSO Credential Sync     ║")
-        print("╚══════════════════════════════════╝\n")
-        print("  [1] Sincronizar credenciales (login)")
-        print("  [2] Mantenimiento (tenants y cuentas)")
-        print("  [3] Actualizar aplicación")
-        print("  [Q] Salir\n")
+        try:
+            print("\n╔══════════════════════════════════╗")
+            print("║       AWS SSO Credential Sync     ║")
+            print("╚══════════════════════════════════╝\n")
+            print("  [1] Sincronizar credenciales (login)")
+            print("  [2] Mantenimiento (tenants y cuentas)")
+            print("  [3] Actualizar aplicación")
+            print("  [Q] Salir\n")
 
-        choice = input("  Opción: ").strip().upper()
-        logger.debug("Menú principal -> opción=%r", choice)
-        if choice == "Q":
-            print("\n👋 Hasta luego.\n")
-            sys.exit(0)
-        elif choice == "1":
-            menu_login.run(config.load())
-        elif choice == "2":
-            menu_maintenance.run(config.load())
-        elif choice == "3":
-            _update()
-        else:
-            print("  ⚠️  Opción inválida, intenta de nuevo.")
+            choice = input("  Opción: ").strip().upper()
+            logger.debug("Menú principal -> opción=%r", choice)
+            if choice == "Q":
+                print("\n👋 Hasta luego.\n")
+                sys.exit(0)
+            elif choice == "1":
+                menu_login.run(config.load())
+            elif choice == "2":
+                menu_maintenance.run(config.load())
+            elif choice == "3":
+                _update()
+            else:
+                print("  ⚠️  Opción inválida, intenta de nuevo.")
+        except KeyboardInterrupt:
+            # Ctrl+C at any prompt, no matter how deep in a submenu, lands
+            # back here uncaught (nothing else in the call stack handles
+            # it) - cancel whatever was in progress and redraw this menu.
+            logger.debug("Ctrl+C recibido, cancelando y volviendo al menú principal")
+            print("\n\n  ⚠️  Cancelado. Volviendo al menú principal.\n")
 
 
 if __name__ == "__main__":
