@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/git-push-guard.sh",
+            "if": "Bash(git *)"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/git-secret-guard.sh",
+            "if": "Bash(git *)"
+          }
+        ]
+      }
+    ]
+  }
+}
