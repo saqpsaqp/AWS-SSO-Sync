@@ -7,8 +7,11 @@ alone so `aws sso login` opens the system's default browser on its own.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 CHROME_PATHS = [
     "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe",
@@ -33,10 +36,13 @@ def find_chrome() -> str | None:
 
 def build_env() -> dict:
     env = os.environ.copy()
-    if not is_wsl() or "BROWSER" in env:
+    wsl = is_wsl()
+    logger.debug("is_wsl=%s, BROWSER ya seteado=%s", wsl, "BROWSER" in env)
+    if not wsl or "BROWSER" in env:
         return env
 
     chrome = find_chrome()
+    logger.debug("find_chrome() -> %r", chrome)
     if chrome:
         env["BROWSER"] = chrome
     else:

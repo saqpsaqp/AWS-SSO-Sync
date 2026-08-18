@@ -127,6 +127,22 @@ then reinstalls the package in editable mode. Equivalent to running
 If `AWS_SSO_SYNC_HOME` isn't set (e.g. you installed some other way), the
 menu tells you to run `update.sh` manually.
 
+## Debug logging
+
+```bash
+aws-sso-sync --logs-enabled
+```
+
+Writes a detailed, timestamped log of the whole session to
+`~/.config/aws-sso-sync/logs/<timestamp>.log` — every AWS CLI subprocess
+invoked (with `--access-token` values redacted), every SSO cache file
+examined by "Descubrir cuentas y roles" and why it was accepted or skipped
+(missing token, `startUrl` mismatch, expired), every write to
+`~/.aws/config`/`~/.aws/credentials`, and every top-level menu choice.
+Logging is off by default and only turns on for that invocation — it's not
+a persistent setting. Nothing secret (access tokens, access keys, session
+tokens) is ever written to the log file.
+
 ## Troubleshooting
 
 - **`aws-sso-sync: command not found`** — `~/.local/bin` isn't on your

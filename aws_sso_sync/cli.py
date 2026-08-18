@@ -2,12 +2,28 @@
 
 from __future__ import annotations
 
+import argparse
+import logging
 import os
+import platform
 import subprocess
 import sys
 
-from . import config, menu_login, menu_maintenance
+from . import __version__, config, menu_login, menu_maintenance
+from .logging_setup import setup_logging
 from .preflight import check_aws_cli
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="aws-sso-sync")
+    parser.add_argument(
+        "--logs-enabled",
+        action="store_true",
+        help="Escribe un log detallado de la sesión en ~/.config/aws-sso-sync/logs/",
+    )
+    return parser.parse_args(argv)
 
 
 def _update() -> None:
@@ -18,6 +34,7 @@ def _update() -> None:
         return
 
     print(f"\n  🔄 Actualizando desde git en {home} ...\n")
+    logger.debug("git -C %s pull --ff-only", home)
     result = subprocess.run(["git", "-C", home, "pull", "--ff-only"])
     if result.returncode != 0:
         print("\n  ❌ Falló 'git pull'. Revisa el mensaje de arriba.\n")
@@ -28,6 +45,13 @@ def _update() -> None:
 
 
 def main() -> None:
+    args = _parse_args()
+    log_path = setup_logging(args.logs_enabled)
+    if log_path:
+        print(f"📝 Logging habilitado: {log_path}\n")
+
+    logger.debug("aws-sso-sync %s iniciando (python=%s, platform=%s)", __version__, sys.version.split()[0], platform.platform())
+
     check_aws_cli()
 
     while True:
@@ -40,6 +64,7 @@ def main() -> None:
         print("  [Q] Salir\n")
 
         choice = input("  Opción: ").strip().upper()
+        logger.debug("Menú principal -> opción=%r", choice)
         if choice == "Q":
             print("\n👋 Hasta luego.\n")
             sys.exit(0)

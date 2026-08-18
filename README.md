@@ -70,6 +70,10 @@ Quick summary of the main menu:
 - **Actualizar aplicación** — pulls the latest git revision and refreshes the
   install (same as running `./update.sh`).
 
+Run `aws-sso-sync --logs-enabled` to write a detailed debug log for that
+session to `~/.config/aws-sso-sync/logs/` — see
+[docs/USAGE.md](docs/USAGE.md#debug-logging) for what it captures.
+
 ## Updating
 
 ```bash

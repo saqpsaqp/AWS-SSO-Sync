@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from .config import Account, Tenant
 from .credentials import CREDENTIALS_FILE, export_credentials, update_credentials_file
 from .sso import sso_login
+
+logger = logging.getLogger(__name__)
 
 
 def _select_tenant(tenants: dict[str, Tenant]):
@@ -79,9 +83,11 @@ def _sync_accounts(tenant_name: str, accounts: list[Account]) -> None:
             print("✅")
             ok += 1
         except Exception as e:
+            logger.debug("Fallo sincronizando %s: %s", acc.sso_profile, e)
             print(f"❌\n│     {e}")
             fail += 1
 
+    logger.debug("Sync %s: %d ok, %d errores", tenant_name, ok, fail)
     print(f"└─ {ok} ok" + (f"  {fail} errores" if fail else "") + "\n")
 
 

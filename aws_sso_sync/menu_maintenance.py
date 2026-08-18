@@ -7,9 +7,13 @@ Creating a tenant/account also provisions the corresponding [sso-session]/
 
 from __future__ import annotations
 
+import logging
+
 from . import aws_config_writer, sso_discovery
 from .config import Account, Tenant, save, slugify
 from .sso import sso_login_session
+
+logger = logging.getLogger(__name__)
 
 
 def _input(prompt: str, default: str = "") -> str:
@@ -84,6 +88,7 @@ def _create_tenant(tenants: dict[str, Tenant]) -> None:
         return
     sso_session = _input("Nombre de la sso-session", f"{slugify(name)}-sso-session")
 
+    logger.debug("Creando tenant %r con sso_start_url=%r sso_session=%r sso_region=%r", name, sso_start_url, sso_session, sso_region)
     aws_config_writer.ensure_sso_session(sso_session, sso_start_url, sso_region)
     tenants[name] = Tenant(sso_region=sso_region, sso_session=sso_session, sso_start_url=sso_start_url)
     save(tenants)
@@ -118,6 +123,8 @@ def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, 
 def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bool:
     """Picks account + role from what the SSO portal actually grants. Returns False to fall back to manual entry."""
     tenant = tenants[tenant_name]
+    logger.debug("Descubrir cuentas/roles para tenant=%r sso_start_url=%r sso_session=%r sso_region=%r",
+                 tenant_name, tenant.sso_start_url, tenant.sso_session, tenant.sso_region)
 
     token = sso_discovery.find_cached_token(tenant.sso_start_url)
     if not token:
@@ -126,12 +133,14 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
             return False
         token = sso_discovery.find_cached_token(tenant.sso_start_url)
     if not token:
+        logger.debug("Sin token disponible tras login para sso_start_url=%r", tenant.sso_start_url)
         print("  ⚠️  No se pudo obtener el token de la sesión SSO.\n")
         return False
 
     try:
         accounts = sso_discovery.list_accounts(token, tenant.sso_region)
     except RuntimeError as e:
+        logger.debug("list_accounts falló: %s", e)
         print(f"  ⚠️  No se pudieron listar las cuentas: {e}\n")
         return False
     if not accounts:
@@ -146,6 +155,7 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
     try:
         roles = sso_discovery.list_account_roles(token, account["accountId"], tenant.sso_region)
     except RuntimeError as e:
+        logger.debug("list_account_roles falló: %s", e)
         print(f"  ⚠️  No se pudieron listar los roles: {e}\n")
         return False
     if not roles:

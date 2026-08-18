@@ -8,7 +8,10 @@ formatting in ~/.aws/config are not preserved.
 from __future__ import annotations
 
 import configparser
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 AWS_CONFIG_FILE = Path.home() / ".aws" / "config"
 
@@ -35,6 +38,7 @@ def ensure_sso_session(session_name: str, sso_start_url: str, sso_region: str) -
     config.set(section, "sso_region", sso_region)
     config.set(section, "sso_registration_scopes", "sso:account:access")
     _write(config)
+    logger.debug("Escrito [%s] en %s (sso_start_url=%r, sso_region=%r)", section, AWS_CONFIG_FILE, sso_start_url, sso_region)
 
 
 def ensure_profile(profile_name: str, session_name: str, account_id: str, role_name: str, region: str) -> None:
@@ -47,3 +51,7 @@ def ensure_profile(profile_name: str, session_name: str, account_id: str, role_n
     config.set(section, "sso_role_name", role_name)
     config.set(section, "region", region)
     _write(config)
+    logger.debug(
+        "Escrito [%s] en %s (sso_session=%r, sso_account_id=%r, sso_role_name=%r)",
+        section, AWS_CONFIG_FILE, session_name, account_id, role_name,
+    )
