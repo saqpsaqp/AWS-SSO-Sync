@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-sso-sync"
+version = "0.1.0"
+description = "Interactive CLI to log into AWS SSO and sync session credentials into ~/.aws/credentials, per tenant and account."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Saul Quintero" }]
+
+[project.scripts]
+aws-sso-sync = "aws_sso_sync.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aws_sso_sync*"]
