@@ -7,14 +7,40 @@ Creating a tenant/account also provisions the corresponding [sso-session]/
 
 from __future__ import annotations
 
-from . import aws_config_writer
+from . import aws_config_writer, sso_discovery
 from .config import Account, Tenant, save, slugify
+from .sso import sso_login_session
 
 
 def _input(prompt: str, default: str = "") -> str:
     suffix = f" [{default}]" if default else ""
     value = input(f"  {prompt}{suffix}: ").strip()
     return value or default
+
+
+def _pick(items: list[dict], format_item, prompt: str) -> dict | None:
+    """Numbered picker over dicts, with a free-text filter. None means cancel."""
+    filtered = items
+    while True:
+        for i, item in enumerate(filtered, 1):
+            print(f"  [{i}] {format_item(item)}")
+        print("\n  [Q] Cancelar")
+        choice = input(f"\n  {prompt} (o escribe texto para filtrar): ").strip()
+        if choice.upper() == "Q":
+            return None
+        if choice.isdigit():
+            if 0 < int(choice) <= len(filtered):
+                return filtered[int(choice) - 1]
+            print("  ⚠️  Número fuera de rango.\n")
+            continue
+        needle = choice.lower()
+        matches = [it for it in items if needle in format_item(it).lower()]
+        if not matches:
+            print("  ⚠️  Sin resultados para ese filtro, mostrando lista completa.\n")
+            filtered = items
+        else:
+            filtered = matches
+        print()
 
 
 def _pick_tenant(tenants: dict[str, Tenant]) -> str | None:
@@ -67,29 +93,8 @@ def _create_tenant(tenants: dict[str, Tenant]) -> None:
         _create_account(tenants, name)
 
 
-def _create_account(tenants: dict[str, Tenant], tenant_name: str | None = None) -> None:
-    print("\n  ── Agregar cuenta/rol ──\n")
-    if not tenants:
-        print("  ⚠️  No hay tenants. Crea uno primero.\n")
-        return
-
-    if tenant_name is None:
-        tenant_name = _pick_tenant(tenants)
-        if tenant_name is None:
-            return
-
+def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, role: str, account_id: str, sso_role_name: str) -> None:
     tenant = tenants[tenant_name]
-    label = _input("Etiqueta visible (ej: Producción)")
-    if not label:
-        print("  ⚠️  Etiqueta vacía, cancelado.\n")
-        return
-    role = _input("Rol / propósito (ej: AdministratorAccess)")
-    account_id = _input("Account ID de AWS (12 dígitos)")
-    if not (account_id.isdigit() and len(account_id) == 12):
-        print("  ⚠️  Account ID inválido (deben ser 12 dígitos), cancelado.\n")
-        return
-    sso_role_name = _input("Nombre del IAM Role para SSO (ej: AdministratorAccess)", role)
-
     slug = slugify(label)
     tenant_slug = slugify(tenant_name)
     sso_profile = _input("Nombre de perfil SSO en ~/.aws/config", f"{tenant_slug}-{slug}-sso")
@@ -108,6 +113,101 @@ def _create_account(tenants: dict[str, Tenant], tenant_name: str | None = None) 
     )
     save(tenants)
     print(f"\n  ✅ Cuenta '{label}' agregada a {tenant_name}. Bloque [profile {sso_profile}] escrito en ~/.aws/config.\n")
+
+
+def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bool:
+    """Picks account + role from what the SSO portal actually grants. Returns False to fall back to manual entry."""
+    tenant = tenants[tenant_name]
+
+    token = sso_discovery.find_cached_token(tenant.sso_start_url)
+    if not token:
+        print("\n  No hay una sesión SSO activa en caché; se abrirá el login.")
+        if not sso_login_session(tenant.sso_session):
+            return False
+        token = sso_discovery.find_cached_token(tenant.sso_start_url)
+    if not token:
+        print("  ⚠️  No se pudo obtener el token de la sesión SSO.\n")
+        return False
+
+    try:
+        accounts = sso_discovery.list_accounts(token, tenant.sso_region)
+    except RuntimeError as e:
+        print(f"  ⚠️  No se pudieron listar las cuentas: {e}\n")
+        return False
+    if not accounts:
+        print("  ⚠️  El SSO no reporta cuentas visibles para este usuario.\n")
+        return False
+
+    print(f"\n  Cuentas disponibles en {tenant_name}:\n")
+    account = _pick(accounts, lambda a: f"{a['accountId']} - {a.get('accountName', '')}", "Cuenta")
+    if account is None:
+        return False
+
+    try:
+        roles = sso_discovery.list_account_roles(token, account["accountId"], tenant.sso_region)
+    except RuntimeError as e:
+        print(f"  ⚠️  No se pudieron listar los roles: {e}\n")
+        return False
+    if not roles:
+        print("  ⚠️  No hay roles SSO visibles para esa cuenta.\n")
+        return False
+
+    print(f"\n  Roles disponibles en {account.get('accountName', account['accountId'])}:\n")
+    role = _pick(roles, lambda r: r["roleName"], "Rol")
+    if role is None:
+        return False
+
+    account_id = account["accountId"]
+    role_name = role["roleName"]
+    account_name = account.get("accountName", account_id)
+
+    print()
+    label = _input("Etiqueta visible", account_name)
+    if not label:
+        print("  ⚠️  Etiqueta vacía, cancelado.\n")
+        return False
+
+    _register_account(tenants, tenant_name, label, role_name, account_id, role_name)
+    return True
+
+
+def _create_account_manual(tenants: dict[str, Tenant], tenant_name: str) -> None:
+    label = _input("Etiqueta visible (ej: Producción)")
+    if not label:
+        print("  ⚠️  Etiqueta vacía, cancelado.\n")
+        return
+    role = _input("Rol / propósito (ej: AdministratorAccess)")
+    account_id = _input("Account ID de AWS (12 dígitos)")
+    if not (account_id.isdigit() and len(account_id) == 12):
+        print("  ⚠️  Account ID inválido (deben ser 12 dígitos), cancelado.\n")
+        return
+    sso_role_name = _input("Nombre del IAM Role para SSO (ej: AdministratorAccess)", role)
+
+    _register_account(tenants, tenant_name, label, role, account_id, sso_role_name)
+
+
+def _create_account(tenants: dict[str, Tenant], tenant_name: str | None = None) -> None:
+    print("\n  ── Agregar cuenta/rol ──\n")
+    if not tenants:
+        print("  ⚠️  No hay tenants. Crea uno primero.\n")
+        return
+
+    if tenant_name is None:
+        tenant_name = _pick_tenant(tenants)
+        if tenant_name is None:
+            return
+
+    print("\n  ¿Cómo quieres agregar la cuenta?\n")
+    print("  [1] Descubrir cuentas y roles vía SSO (recomendado)")
+    print("  [2] Ingresar manualmente\n")
+    mode = input("  Opción: ").strip()
+
+    if mode == "1":
+        if _create_account_discover(tenants, tenant_name):
+            return
+        print("  Pasando a ingreso manual...\n")
+
+    _create_account_manual(tenants, tenant_name)
 
 
 def _edit_account(tenants: dict[str, Tenant]) -> None:

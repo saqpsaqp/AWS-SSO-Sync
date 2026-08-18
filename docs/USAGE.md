@@ -82,11 +82,25 @@ matches how the original single-file script behaved.
   session name (auto-suggested). Writes `[sso-session <name>]` into
   `~/.aws/config` and an empty tenant entry into `config.json`. Offers to add
   the first account right away.
-- **Agregar cuenta/rol** — asks for a label, a role/purpose tag, the 12-digit
-  AWS account ID, and the IAM role name for SSO. Profile names
-  (`sso_profile`/`credentials_profile`) are auto-suggested from the tenant
-  and label but editable. Writes `[profile <sso_profile>]` into
-  `~/.aws/config` (referencing the tenant's `sso-session`) and appends the
+- **Agregar cuenta/rol** — offers two modes:
+  - **Descubrir cuentas y roles vía SSO (recomendado)** — reuses (or triggers)
+    an `aws sso login --sso-session <name>` for the tenant, reads the access
+    token AWS CLI just cached in `~/.aws/sso/cache/`, and calls
+    `aws sso list-accounts` / `list-account-roles` to show every account and
+    role the SSO portal actually grants you — the same list you'd see at
+    `https://xxxx.awsapps.com/start/#/`. Pick an account, pick a role (both
+    lists accept typing text to filter), and you're only asked for the
+    **label** and the **profile names** (`sso_profile`/`credentials_profile`,
+    auto-suggested) — account ID and IAM role name come straight from SSO.
+  - **Ingresar manualmente** — the original flow: label, role/purpose tag,
+    12-digit AWS account ID, and IAM role name, typed by hand. Used as the
+    fallback if discovery fails (no cached/obtainable token, or the SSO API
+    call errors) and for accounts you haven't logged into yet.
+
+  Either way, profile names (`sso_profile`/`credentials_profile`) are
+  auto-suggested from the tenant and label but editable. Writes
+  `[profile <sso_profile>]` into `~/.aws/config` (referencing the tenant's
+  `sso-session`) and appends the
   account to `config.json`.
 - **Editar cuenta** — lets you change label, role tag, and
   `credentials_profile`. Changing `sso_profile`/`account_id` requires
@@ -126,6 +140,12 @@ menu tells you to run `update.sh` manually.
 - **Lost your previous `~/.aws/credentials`** — `install.sh` backs it up to
   `~/.aws/credentials.backup-<timestamp>` before anything else runs; check
   for that file next to it.
+- **"Descubrir cuentas y roles" finds nothing / keeps asking to log in** —
+  the SSO access token cache (`~/.aws/sso/cache/`) is keyed by start URL and
+  expires (typically 8h). If it's missing/expired the tool triggers a fresh
+  `aws sso login --sso-session <name>` automatically; if that also fails, or
+  the account genuinely has no accounts/roles granted in Identity Center, it
+  falls back to manual entry.
 - **WSL2 and the browser doesn't open** — the tool auto-detects WSL and
   points `aws sso login` at Windows Chrome under `/mnt/c/...`. If it's not
   found in the standard install paths, set `BROWSER` yourself before running

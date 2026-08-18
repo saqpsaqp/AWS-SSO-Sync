@@ -62,8 +62,11 @@ Quick summary of the main menu:
   pick "todas las cuentas" or a comma-separated selection (e.g. `1,3`) of
   specific accounts to log in and refresh in `~/.aws/credentials`.
 - **Mantenimiento (tenants y cuentas)** — create/edit/delete tenants and
-  accounts. Creating one also provisions the matching `[sso-session]` /
-  `[profile ...]` block in `~/.aws/config`.
+  accounts. Creating an account can **discover it from the SSO portal**
+  (same accounts/roles you'd see at `https://xxxx.awsapps.com/start/#/`) so
+  you only pick a label and profile names, or be entered manually. Either
+  way it provisions the matching `[sso-session]` / `[profile ...]` block in
+  `~/.aws/config`.
 - **Actualizar aplicación** — pulls the latest git revision and refreshes the
   install (same as running `./update.sh`).
 
