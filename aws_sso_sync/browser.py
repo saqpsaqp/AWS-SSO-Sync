@@ -11,6 +11,8 @@ import logging
 import os
 from pathlib import Path
 
+from .i18n import t
+
 logger = logging.getLogger(__name__)
 
 CHROME_PATHS = [
@@ -46,6 +48,6 @@ def build_env() -> dict:
     if chrome:
         env["BROWSER"] = chrome
     else:
-        print("  ⚠️  WSL detectado pero no se encontró Chrome de Windows en las rutas estándar.")
-        print("     Setea manualmente: export BROWSER='/mnt/c/...chrome.exe'")
+        print(t("browser.chrome_not_found"))
+        print(t("browser.chrome_hint"))
     return env

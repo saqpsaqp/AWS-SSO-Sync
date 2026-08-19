@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = Path.home() / ".config" / "aws-sso-sync"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
+DEFAULT_LANGUAGE = "en"
+
 
 @dataclass
 class Account:
@@ -42,13 +44,19 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 
+def _read_raw() -> dict:
+    if not CONFIG_FILE.exists():
+        return {}
+    return json.loads(CONFIG_FILE.read_text())
+
+
 def load() -> dict[str, Tenant]:
     if not CONFIG_FILE.exists():
         logger.debug("%s no existe, creando config vacía", CONFIG_FILE)
         save({})
         return {}
 
-    raw = json.loads(CONFIG_FILE.read_text())
+    raw = _read_raw()
     tenants: dict[str, Tenant] = {}
     for name, t in raw.get("tenants", {}).items():
         accounts = [Account(**a) for a in t.get("accounts", [])]
@@ -73,15 +81,27 @@ def load() -> dict[str, Tenant]:
 
 def save(tenants: dict[str, Tenant]) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "tenants": {
-            name: {
-                "sso_region": t.sso_region,
-                "sso_session": t.sso_session,
-                "sso_start_url": t.sso_start_url,
-                "accounts": [asdict(a) for a in t.accounts],
-            }
-            for name, t in tenants.items()
+    payload = _read_raw()
+    payload["tenants"] = {
+        name: {
+            "sso_region": t.sso_region,
+            "sso_session": t.sso_session,
+            "sso_start_url": t.sso_start_url,
+            "accounts": [asdict(a) for a in t.accounts],
         }
+        for name, t in tenants.items()
     }
     CONFIG_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+
+
+def load_language() -> str:
+    return _read_raw().get("language", DEFAULT_LANGUAGE)
+
+
+def save_language(language: str) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    payload = _read_raw()
+    payload["language"] = language
+    payload.setdefault("tenants", {})
+    CONFIG_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    logger.debug("Idioma guardado: %r", language)

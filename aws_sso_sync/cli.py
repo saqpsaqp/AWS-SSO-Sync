@@ -9,7 +9,8 @@ import platform
 import subprocess
 import sys
 
-from . import __version__, config, menu_login, menu_maintenance
+from . import __version__, config, i18n, menu_login, menu_maintenance
+from .i18n import t
 from .logging_setup import setup_logging
 from .preflight import check_aws_cli
 
@@ -24,6 +25,29 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Escribe un log detallado de la sesión en ~/.config/aws-sso-sync/logs/",
     )
     return parser.parse_args(argv)
+
+
+def _language_menu() -> None:
+    # Deliberately not translated via t(): if the current language is the
+    # wrong one, this screen still has to be readable so the user can find
+    # their way back to their own language.
+    print("\n  Idioma / Language:\n")
+    codes = i18n.available_languages()
+    for i, code in enumerate(codes, 1):
+        marker = " ✓" if code == i18n.get_language() else ""
+        print(f"  [{i}] {i18n.LANGUAGE_NAMES[code]}{marker}")
+    print("  [Q] Cancelar / Cancel")
+
+    choice = input("\n  Opción / Option: ").strip().upper()
+    if choice == "Q" or not choice:
+        return
+    if choice.isdigit() and 0 < int(choice) <= len(codes):
+        lang = codes[int(choice) - 1]
+        i18n.set_language(lang)
+        config.save_language(lang)
+        print(f"\n  ✅ {t('cli.language.saved', name=i18n.LANGUAGE_NAMES[lang])}\n")
+        return
+    print("\n  ⚠️  Opción inválida / Invalid option\n")
 
 
 def _latest_tag(home: str) -> str | None:
@@ -44,15 +68,15 @@ def _latest_tag(home: str) -> str | None:
 def _update() -> None:
     home = os.environ.get("AWS_SSO_SYNC_HOME")
     if not home:
-        print("\n  ⚠️  No se detectó AWS_SSO_SYNC_HOME (¿instalaste con install.sh?).")
-        print("     Corre 'update.sh' manualmente desde tu checkout del repo.\n")
+        print(t("cli.update.no_home"))
+        print(t("cli.update.no_home_hint"))
         return
 
-    print("\n  🔄 Actualizando...")
+    print(t("cli.update.updating"))
 
     tag = _latest_tag(home)
     if not tag:
-        print("\n  ⚠️  Todavía no hay ningún release publicado (falta un tag vX.Y.Z).\n")
+        print(t("cli.update.no_release"))
         return
 
     # Only fast-forwards to the latest published release tag, never past it -
@@ -63,7 +87,7 @@ def _update() -> None:
     logger.debug("git merge stdout: %s", result.stdout.strip())
     logger.debug("git merge stderr: %s", result.stderr.strip())
     if result.returncode != 0:
-        print("\n  ❌ Falló la actualización.")
+        print(t("cli.update.failed"))
         print(f"     {(result.stderr or result.stdout).strip()}\n")
         return
 
@@ -71,25 +95,26 @@ def _update() -> None:
     logger.debug("pip install stdout: %s", pip_result.stdout.strip())
     logger.debug("pip install stderr: %s", pip_result.stderr.strip())
     if pip_result.returncode != 0:
-        print("\n  ❌ Falló la reinstalación del paquete.")
+        print(t("cli.update.reinstall_failed"))
         print(f"     {pip_result.stderr.strip()}\n")
         return
 
-    print(f"\n  ✅ Actualización completada ({tag}).\n")
+    print(t("cli.update.done", tag=tag))
 
 
 def main() -> None:
     args = _parse_args()
     log_path = setup_logging(args.logs_enabled)
+    i18n.set_language(config.load_language())
     if log_path:
-        print(f"📝 Logging habilitado: {log_path}\n")
+        print(t("cli.logging_enabled", path=log_path))
 
     logger.debug("aws-sso-sync %s iniciando (python=%s, platform=%s)", __version__, sys.version.split()[0], platform.platform())
 
     try:
         check_aws_cli()
     except KeyboardInterrupt:
-        print("\n👋 Cancelado.\n")
+        print(t("cli.cancelled_startup"))
         sys.exit(0)
 
     while True:
@@ -97,15 +122,16 @@ def main() -> None:
             print("\n╔══════════════════════════════════╗")
             print("║       AWS SSO Credential Sync    ║")
             print("╚══════════════════════════════════╝\n")
-            print("  [1] Sincronizar credenciales (login)")
-            print("  [2] Mantenimiento (tenants y cuentas)")
-            print("  [3] Actualizar aplicación")
-            print("  [Q] Salir\n")
+            print(f"  {t('cli.menu.sync')}")
+            print(f"  {t('cli.menu.maintenance')}")
+            print(f"  {t('cli.menu.update')}")
+            print(f"  {t('cli.menu.language')}")
+            print(f"  {t('cli.menu.exit')}\n")
 
-            choice = input("  Opción: ").strip().upper()
+            choice = input(t("common.option_prompt")).strip().upper()
             logger.debug("Menú principal -> opción=%r", choice)
             if choice == "Q":
-                print("\n👋 Hasta luego.")
+                print(t("cli.farewell"))
                 print("   aws-sso-sync — Saúl Quintero (saulquintero.com.co)\n")
                 sys.exit(0)
             elif choice == "1":
@@ -114,14 +140,16 @@ def main() -> None:
                 menu_maintenance.run(config.load())
             elif choice == "3":
                 _update()
+            elif choice == "4":
+                _language_menu()
             else:
-                print("  ⚠️  Opción inválida, intenta de nuevo.")
+                print(f"  {t('common.invalid_option_retry')}")
         except KeyboardInterrupt:
             # Ctrl+C at any prompt, no matter how deep in a submenu, lands
             # back here uncaught (nothing else in the call stack handles
             # it) - cancel whatever was in progress and redraw this menu.
             logger.debug("Ctrl+C recibido, cancelando y volviendo al menú principal")
-            print("\n\n  ⚠️  Cancelado. Volviendo al menú principal.\n")
+            print(t("cli.cancelled"))
 
 
 if __name__ == "__main__":

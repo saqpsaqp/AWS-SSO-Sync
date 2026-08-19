@@ -62,17 +62,20 @@ tenants/accounts, selective login, the config file format) and troubleshooting.
 
 Quick summary of the main menu:
 
-- **Sincronizar credenciales (login)** — pick a tenant (or all of them), then
-  pick "todas las cuentas" or a comma-separated selection (e.g. `1,3`) of
+- **Sync credentials (login)** — pick a tenant (or all of them), then
+  pick "all accounts" or a comma-separated selection (e.g. `1,3`) of
   specific accounts to log in and refresh in `~/.aws/credentials`.
-- **Mantenimiento (tenants y cuentas)** — create/edit/delete tenants and
+- **Maintenance (tenants and accounts)** — create/edit/delete tenants and
   accounts. Creating an account can **discover it from the SSO portal**
   (same accounts/roles you'd see at `https://xxxx.awsapps.com/start/#/`) so
   you only pick a label and profile names, or be entered manually. Either
   way it provisions the matching `[sso-session]` / `[profile ...]` block in
   `~/.aws/config`.
-- **Actualizar aplicación** — pulls the latest git revision and refreshes the
-  install (same as running `./update.sh`).
+- **Update application** — fast-forwards to the latest published release
+  tag and refreshes the install (same as running `./update.sh`).
+- **Idioma / Language** — switch the app's language (English by default,
+  Spanish also available); takes effect immediately and is remembered for
+  next time.
 
 Run `aws-sso-sync --logs-enabled` to write a detailed debug log for that
 session to `~/.config/aws-sso-sync/logs/` — see
@@ -85,8 +88,9 @@ cd aws-sso-sync   # your checkout
 ./update.sh
 ```
 
-or use "Actualizar aplicación" from the CLI's main menu — both do a
-`git pull --ff-only` followed by an editable reinstall.
+or use "Update application" from the CLI's main menu — both fast-forward
+to the latest published `vX.Y.Z` release tag followed by an editable
+reinstall (not just whatever is at the tip of `master`).
 
 ## Configuration storage
 
