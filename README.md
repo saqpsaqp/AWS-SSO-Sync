@@ -74,6 +74,7 @@ Quick summary of the main menu:
 - **Idioma / Language** — switch the app's language (English by default,
   Spanish also available); takes effect immediately and is remembered for
   next time.
+- **About** — installed version, author, website, repository, and license.
 
 Updating isn't a menu option — run `aws-sso-sync --update` (see
 "Updating" below).

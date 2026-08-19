@@ -59,12 +59,17 @@ field for next time. Want to add another language? See
 [1] Sync credentials (login)
 [2] Maintenance (tenants and accounts)
 [3] Idioma / Language
+[4] About
 [Q] Exit
 ```
 
 (Shown here in English, the default; every label is translated once you
 switch language.) Updating the application isn't a menu option — see
 "Update application" below for the `--update` flag instead.
+
+**About** — prints the installed version, author, website, repository
+URL, and license. This is now the only place that information is shown;
+the farewell message on `[Q] Exit` is plain.
 
 **Ctrl+C cancels and returns to the main menu** from anywhere — no matter
 how deep in a submenu or which field you're on (e.g. mid-way through "Add
