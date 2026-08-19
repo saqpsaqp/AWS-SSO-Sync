@@ -1,4 +1,5 @@
-"""Main menu: sync credentials, maintain tenants/accounts, or self-update."""
+"""Main menu: sync credentials, maintain tenants/accounts. Self-update is
+a startup flag (--update), not a menu option - see _update()."""
 
 from __future__ import annotations
 
@@ -23,6 +24,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--logs-enabled",
         action="store_true",
         help="Escribe un log detallado de la sesión en ~/.config/aws-sso-sync/logs/",
+    )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Actualiza al último release publicado (git tag vX.Y.Z) y sale, sin abrir el menú interactivo.",
     )
     return parser.parse_args(argv)
 
@@ -111,6 +117,10 @@ def main() -> None:
 
     logger.debug("aws-sso-sync %s iniciando (python=%s, platform=%s)", __version__, sys.version.split()[0], platform.platform())
 
+    if args.update:
+        _update()
+        sys.exit(0)
+
     try:
         check_aws_cli()
     except KeyboardInterrupt:
@@ -124,7 +134,6 @@ def main() -> None:
             print("╚══════════════════════════════════╝\n")
             print(f"  {t('cli.menu.sync')}")
             print(f"  {t('cli.menu.maintenance')}")
-            print(f"  {t('cli.menu.update')}")
             print(f"  {t('cli.menu.language')}")
             print(f"  {t('cli.menu.exit')}\n")
 
@@ -139,8 +148,6 @@ def main() -> None:
             elif choice == "2":
                 menu_maintenance.run(config.load())
             elif choice == "3":
-                _update()
-            elif choice == "4":
                 _language_menu()
             else:
                 print(f"  {t('common.invalid_option_retry')}")
