@@ -71,11 +71,12 @@ Quick summary of the main menu:
   you only pick a label and profile names, or be entered manually. Either
   way it provisions the matching `[sso-session]` / `[profile ...]` block in
   `~/.aws/config`.
-- **Update application** — fast-forwards to the latest published release
-  tag and refreshes the install (same as running `./update.sh`).
 - **Idioma / Language** — switch the app's language (English by default,
   Spanish also available); takes effect immediately and is remembered for
   next time.
+
+Updating isn't a menu option — run `aws-sso-sync --update` (see
+"Updating" below).
 
 Run `aws-sso-sync --logs-enabled` to write a detailed debug log for that
 session to `~/.config/aws-sso-sync/logs/` — see
@@ -88,7 +89,7 @@ cd aws-sso-sync   # your checkout
 ./update.sh
 ```
 
-or use "Update application" from the CLI's main menu — both fast-forward
+or run `aws-sso-sync --update` — both fast-forward
 to the latest published `vX.Y.Z` release tag followed by an editable
 reinstall (not just whatever is at the tip of `master`).
 

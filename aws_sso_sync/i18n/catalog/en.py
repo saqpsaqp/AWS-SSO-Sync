@@ -19,8 +19,7 @@ STRINGS: dict[str, str] = {
     # cli.py
     "cli.menu.sync": "[1] Sync credentials (login)",
     "cli.menu.maintenance": "[2] Maintenance (tenants and accounts)",
-    "cli.menu.update": "[3] Update application",
-    "cli.menu.language": "[4] Idioma / Language",
+    "cli.menu.language": "[3] Idioma / Language",
     "cli.menu.exit": "[Q] Exit",
     "cli.farewell": "\n👋 Goodbye.",
     "cli.cancelled_startup": "\n👋 Cancelled.\n",
