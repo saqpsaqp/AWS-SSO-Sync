@@ -11,6 +11,7 @@ import logging
 
 from . import aws_config_writer, sso_discovery
 from .config import Account, Tenant, save, slugify
+from .i18n import t
 from .sso import sso_login_session
 
 logger = logging.getLogger(__name__)
@@ -22,25 +23,30 @@ def _input(prompt: str, default: str = "") -> str:
     return value or default
 
 
+def _confirm(key: str, **kwargs: object) -> bool:
+    answer = input(t(key, **kwargs)).strip().lower()
+    return answer == t("common.yes_char")
+
+
 def _pick(items: list[dict], format_item, prompt: str) -> dict | None:
     """Numbered picker over dicts, with a free-text filter. None means cancel."""
     filtered = items
     while True:
         for i, item in enumerate(filtered, 1):
             print(f"  [{i}] {format_item(item)}")
-        print("\n  [Q] Cancelar")
-        choice = input(f"\n  {prompt} (o escribe texto para filtrar): ").strip()
+        print(f"\n  {t('common.cancel')}")
+        choice = input(t("maint.pick.prompt", prompt=prompt)).strip()
         if choice.upper() == "Q":
             return None
         if choice.isdigit():
             if 0 < int(choice) <= len(filtered):
                 return filtered[int(choice) - 1]
-            print("  ⚠️  Número fuera de rango.\n")
+            print(t("maint.pick.out_of_range"))
             continue
         needle = choice.lower()
         matches = [it for it in items if needle in format_item(it).lower()]
         if not matches:
-            print("  ⚠️  Sin resultados para ese filtro, mostrando lista completa.\n")
+            print(t("maint.pick.no_matches"))
             filtered = items
         else:
             filtered = matches
@@ -50,14 +56,14 @@ def _pick(items: list[dict], format_item, prompt: str) -> dict | None:
 def _pick_tenant(tenants: dict[str, Tenant]) -> str | None:
     names = list(tenants.keys())
     if not names:
-        print("\n  ⚠️  No hay tenants configurados.\n")
+        print(t("maint.no_tenants"))
         return None
     for i, name in enumerate(names, 1):
         print(f"  [{i}] {name}")
     choice = input("\n  Tenant: ").strip()
     if choice.isdigit() and 0 < int(choice) <= len(names):
         return names[int(choice) - 1]
-    print("  ⚠️  Opción inválida.\n")
+    print(t("common.invalid_option"))
     return None
 
 
@@ -73,7 +79,7 @@ def _find_duplicate(tenant: Tenant, account_id: str, sso_role_name: str) -> Acco
 
 def _list_accounts(tenant_name: str, tenant: Tenant) -> list[Account]:
     if not tenant.accounts:
-        print(f"\n  {tenant_name} no tiene cuentas.\n")
+        print(t("maint.tenant_no_accounts", tenant=tenant_name))
         return []
     for i, acc in enumerate(tenant.accounts, 1):
         role = f" ({acc.role})" if acc.role else ""
@@ -82,29 +88,29 @@ def _list_accounts(tenant_name: str, tenant: Tenant) -> list[Account]:
 
 
 def _create_tenant(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Crear tenant nuevo ──\n")
-    name = _input("Nombre del tenant (ej: Adaggio)")
+    print(t("maint.create_tenant.header"))
+    name = _input(t("maint.create_tenant.name_prompt"))
     if not name:
-        print("  ⚠️  Nombre vacío, cancelado.\n")
+        print(t("maint.create_tenant.empty_name"))
         return
     if name in tenants:
-        print(f"  ⚠️  Ya existe un tenant llamado '{name}'.\n")
+        print(t("maint.create_tenant.duplicate", name=name))
         return
 
-    sso_region = _input("Región AWS del SSO (ej: us-east-1)", "us-east-1")
+    sso_region = _input(t("maint.create_tenant.region_prompt"), "us-east-1")
     sso_start_url = _input("SSO start URL (https://xxxx.awsapps.com/start)")
     if not sso_start_url:
-        print("  ⚠️  SSO start URL requerida, cancelado.\n")
+        print(t("maint.create_tenant.empty_url"))
         return
-    sso_session = _input("Nombre de la sso-session", f"{slugify(name)}-sso-session")
+    sso_session = _input(t("maint.create_tenant.session_prompt"), f"{slugify(name)}-sso-session")
 
     logger.debug("Creando tenant %r con sso_start_url=%r sso_session=%r sso_region=%r", name, sso_start_url, sso_session, sso_region)
     aws_config_writer.ensure_sso_session(sso_session, sso_start_url, sso_region)
     tenants[name] = Tenant(sso_region=sso_region, sso_session=sso_session, sso_start_url=sso_start_url)
     save(tenants)
-    print(f"\n  ✅ Tenant '{name}' creado. Bloque [sso-session {sso_session}] escrito en ~/.aws/config.\n")
+    print(t("maint.create_tenant.done", name=name, session=sso_session))
 
-    if input("  ¿Agregar la primera cuenta ahora? (s/N): ").strip().lower() == "s":
+    if _confirm("maint.create_tenant.confirm_first_account"):
         _create_account(tenants, name)
 
 
@@ -113,14 +119,14 @@ def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, 
 
     duplicate = _find_duplicate(tenant, account_id, sso_role_name)
     if duplicate:
-        print(f"\n  ⚠️  Ya existe '{duplicate.label}' para la cuenta {account_id} + rol '{sso_role_name}' en {tenant_name}.")
-        print(f"     Perfil existente: {duplicate.sso_profile} / {duplicate.credentials_profile}. No se agregó un duplicado.\n")
+        print(t("maint.duplicate.exists", label=duplicate.label, account_id=account_id, role=sso_role_name, tenant=tenant_name))
+        print(t("maint.duplicate.existing_profile", sso_profile=duplicate.sso_profile, credentials_profile=duplicate.credentials_profile))
         return False
 
     slug = slugify(label)
     tenant_slug = slugify(tenant_name)
-    sso_profile = _input("Nombre de perfil SSO en ~/.aws/config", f"{tenant_slug}-{slug}-sso")
-    credentials_profile = _input("Nombre de perfil en ~/.aws/credentials", f"{tenant_slug}-{slug}")
+    sso_profile = _input(t("maint.register.sso_profile_prompt"), f"{tenant_slug}-{slug}-sso")
+    credentials_profile = _input(t("maint.register.credentials_profile_prompt"), f"{tenant_slug}-{slug}")
 
     aws_config_writer.ensure_profile(sso_profile, tenant.sso_session, account_id, sso_role_name, tenant.sso_region)
     tenant.accounts.append(
@@ -134,7 +140,7 @@ def _register_account(tenants: dict[str, Tenant], tenant_name: str, label: str, 
         )
     )
     save(tenants)
-    print(f"\n  ✅ Cuenta '{label}' agregada a {tenant_name}. Bloque [profile {sso_profile}] escrito en ~/.aws/config.\n")
+    print(t("maint.register.done", label=label, tenant=tenant_name, sso_profile=sso_profile))
     return True
 
 
@@ -151,27 +157,27 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
 
     token = sso_discovery.find_cached_token(tenant.sso_start_url)
     if not token:
-        print("\n  No hay una sesión SSO activa en caché; se abrirá el login.")
+        print(t("maint.discover.no_cached_session"))
         if not sso_login_session(tenant.sso_session):
             return False
         token = sso_discovery.find_cached_token(tenant.sso_start_url)
     if not token:
         logger.debug("Sin token disponible tras login para sso_start_url=%r", tenant.sso_start_url)
-        print("  ⚠️  No se pudo obtener el token de la sesión SSO.\n")
+        print(t("maint.discover.no_token"))
         return False
 
     try:
         accounts = sso_discovery.list_accounts(token, tenant.sso_region)
     except RuntimeError as e:
         logger.debug("list_accounts falló: %s", e)
-        print(f"  ⚠️  No se pudieron listar las cuentas: {e}\n")
+        print(t("maint.discover.list_accounts_failed", error=e))
         return False
     if not accounts:
-        print("  ⚠️  El SSO no reporta cuentas visibles para este usuario.\n")
+        print(t("maint.discover.no_accounts"))
         return False
 
-    print(f"\n  Cuentas disponibles en {tenant_name}:\n")
-    account = _pick(accounts, lambda a: f"{a['accountId']} - {a.get('accountName', '')}", "Cuenta")
+    print(t("maint.discover.accounts_available", tenant=tenant_name))
+    account = _pick(accounts, lambda a: f"{a['accountId']} - {a.get('accountName', '')}", t("maint.label.account"))
     if account is None:
         return False
 
@@ -179,14 +185,14 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
         roles = sso_discovery.list_account_roles(token, account["accountId"], tenant.sso_region)
     except RuntimeError as e:
         logger.debug("list_account_roles falló: %s", e)
-        print(f"  ⚠️  No se pudieron listar los roles: {e}\n")
+        print(t("maint.discover.list_roles_failed", error=e))
         return False
     if not roles:
-        print("  ⚠️  No hay roles SSO visibles para esa cuenta.\n")
+        print(t("maint.discover.no_roles"))
         return False
 
-    print(f"\n  Roles disponibles en {account.get('accountName', account['accountId'])}:\n")
-    role = _pick(roles, lambda r: r["roleName"], "Rol")
+    print(t("maint.discover.roles_available", account=account.get("accountName", account["accountId"])))
+    role = _pick(roles, lambda r: r["roleName"], t("maint.label.role"))
     if role is None:
         return False
 
@@ -196,14 +202,14 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
 
     duplicate = _find_duplicate(tenant, account_id, role_name)
     if duplicate:
-        print(f"\n  ⚠️  Ya existe '{duplicate.label}' para la cuenta {account_id} + rol '{role_name}' en {tenant_name}.")
-        print(f"     Perfil existente: {duplicate.sso_profile} / {duplicate.credentials_profile}. No se agregó un duplicado.\n")
+        print(t("maint.duplicate.exists", label=duplicate.label, account_id=account_id, role=role_name, tenant=tenant_name))
+        print(t("maint.duplicate.existing_profile", sso_profile=duplicate.sso_profile, credentials_profile=duplicate.credentials_profile))
         return True
 
     print()
-    label = _input("Etiqueta visible", account_name)
+    label = _input(t("maint.label_prompt"), account_name)
     if not label:
-        print("  ⚠️  Etiqueta vacía, cancelado.\n")
+        print(t("maint.empty_label"))
         return False
 
     _register_account(tenants, tenant_name, label, role_name, account_id, role_name)
@@ -211,24 +217,24 @@ def _create_account_discover(tenants: dict[str, Tenant], tenant_name: str) -> bo
 
 
 def _create_account_manual(tenants: dict[str, Tenant], tenant_name: str) -> None:
-    label = _input("Etiqueta visible (ej: Producción)")
+    label = _input(t("maint.manual.label_prompt"))
     if not label:
-        print("  ⚠️  Etiqueta vacía, cancelado.\n")
+        print(t("maint.empty_label"))
         return
-    role = _input("Rol / propósito (ej: AdministratorAccess)")
-    account_id = _input("Account ID de AWS (12 dígitos)")
+    role = _input(t("maint.manual.role_prompt"))
+    account_id = _input(t("maint.manual.account_id_prompt"))
     if not (account_id.isdigit() and len(account_id) == 12):
-        print("  ⚠️  Account ID inválido (deben ser 12 dígitos), cancelado.\n")
+        print(t("maint.manual.invalid_account_id"))
         return
-    sso_role_name = _input("Nombre del IAM Role para SSO (ej: AdministratorAccess)", role)
+    sso_role_name = _input(t("maint.manual.sso_role_prompt"), role)
 
     _register_account(tenants, tenant_name, label, role, account_id, sso_role_name)
 
 
 def _create_account(tenants: dict[str, Tenant], tenant_name: str | None = None) -> None:
-    print("\n  ── Agregar cuenta/rol ──\n")
+    print(t("maint.create_account.header"))
     if not tenants:
-        print("  ⚠️  No hay tenants. Crea uno primero.\n")
+        print(t("maint.create_account.no_tenants"))
         return
 
     if tenant_name is None:
@@ -236,21 +242,21 @@ def _create_account(tenants: dict[str, Tenant], tenant_name: str | None = None) 
         if tenant_name is None:
             return
 
-    print("\n  ¿Cómo quieres agregar la cuenta?\n")
-    print("  [1] Descubrir cuentas y roles vía SSO (recomendado)")
-    print("  [2] Ingresar manualmente\n")
-    mode = input("  Opción: ").strip()
+    print(t("maint.create_account.how"))
+    print(f"  {t('maint.create_account.opt_discover')}")
+    print(f"  {t('maint.create_account.opt_manual')}")
+    mode = input(t("common.option_prompt")).strip()
 
     if mode == "1":
         if _create_account_discover(tenants, tenant_name):
             return
-        print("  Pasando a ingreso manual...\n")
+        print(t("maint.create_account.fallback_manual"))
 
     _create_account_manual(tenants, tenant_name)
 
 
 def _edit_account(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Editar cuenta ──\n")
+    print(t("maint.edit.header"))
     tenant_name = _pick_tenant(tenants)
     if not tenant_name:
         return
@@ -258,20 +264,20 @@ def _edit_account(tenants: dict[str, Tenant]) -> None:
     accounts = _list_accounts(tenant_name, tenant)
     if not accounts:
         return
-    choice = input("\n  Cuenta a editar: ").strip()
+    choice = input(t("maint.edit.which_account")).strip()
     if not (choice.isdigit() and 0 < int(choice) <= len(accounts)):
-        print("  ⚠️  Opción inválida.\n")
+        print(t("common.invalid_option"))
         return
     acc = accounts[int(choice) - 1]
-    acc.label = _input("Etiqueta", acc.label)
-    acc.role = _input("Rol / propósito", acc.role)
-    acc.credentials_profile = _input("Perfil en ~/.aws/credentials", acc.credentials_profile)
+    acc.label = _input(t("maint.edit.label_prompt"), acc.label)
+    acc.role = _input(t("maint.edit.role_prompt"), acc.role)
+    acc.credentials_profile = _input(t("maint.edit.credentials_profile_prompt"), acc.credentials_profile)
     save(tenants)
-    print("\n  ✅ Cuenta actualizada. (Cambiar sso_profile/account_id requiere eliminar y recrear.)\n")
+    print(t("maint.edit.done"))
 
 
 def _delete_account(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Eliminar cuenta ──\n")
+    print(t("maint.delete_account.header"))
     tenant_name = _pick_tenant(tenants)
     if not tenant_name:
         return
@@ -279,44 +285,44 @@ def _delete_account(tenants: dict[str, Tenant]) -> None:
     accounts = _list_accounts(tenant_name, tenant)
     if not accounts:
         return
-    choice = input("\n  Cuenta a eliminar: ").strip()
+    choice = input(t("maint.delete_account.which_account")).strip()
     if not (choice.isdigit() and 0 < int(choice) <= len(accounts)):
-        print("  ⚠️  Opción inválida.\n")
+        print(t("common.invalid_option"))
         return
     acc = accounts[int(choice) - 1]
-    if input(f"  ¿Confirmas eliminar '{acc.label}' de {tenant_name}? (s/N): ").strip().lower() != "s":
-        print("  Cancelado.\n")
+    if not _confirm("maint.delete_account.confirm", label=acc.label, tenant=tenant_name):
+        print(t("common.cancelled"))
         return
     tenant.accounts.remove(acc)
     save(tenants)
-    print(f"\n  ✅ Cuenta '{acc.label}' eliminada de la configuración de aws-sso-sync.")
-    print(f"     Nota: el perfil [profile {acc.sso_profile}] sigue en ~/.aws/config; bórralo a mano si ya no lo necesitas.\n")
+    print(t("maint.delete_account.done", label=acc.label))
+    print(t("maint.delete_account.note", profile=acc.sso_profile))
 
 
 def _delete_tenant(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Eliminar tenant ──\n")
+    print(t("maint.delete_tenant.header"))
     tenant_name = _pick_tenant(tenants)
     if not tenant_name:
         return
     account_count = len(tenants[tenant_name].accounts)
-    if input(f"  ¿Confirmas eliminar el tenant '{tenant_name}' y sus {account_count} cuentas de la config? (s/N): ").strip().lower() != "s":
-        print("  Cancelado.\n")
+    if not _confirm("maint.delete_tenant.confirm", tenant=tenant_name, count=account_count):
+        print(t("common.cancelled"))
         return
     del tenants[tenant_name]
     save(tenants)
-    print(f"\n  ✅ Tenant '{tenant_name}' eliminado de la configuración de aws-sso-sync.")
-    print("     Nota: los bloques en ~/.aws/config no se tocan; bórralos a mano si ya no los necesitas.\n")
+    print(t("maint.delete_tenant.done", tenant=tenant_name))
+    print(t("maint.delete_tenant.note"))
 
 
 def _view_config(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Configuración actual ──\n")
+    print(t("maint.view.header"))
     if not tenants:
-        print("  (vacío)\n")
+        print(t("maint.view.empty"))
         return
     for name, tenant in tenants.items():
         print(f"  {name}  [{tenant.sso_region}, session={tenant.sso_session}]")
         if not tenant.accounts:
-            print("    (sin cuentas)")
+            print(t("maint.view.no_accounts"))
         for acc in tenant.accounts:
             role = f" ({acc.role})" if acc.role else ""
             print(f"    - {acc.label}{role} → {acc.sso_profile} / {acc.credentials_profile}")
@@ -324,7 +330,7 @@ def _view_config(tenants: dict[str, Tenant]) -> None:
 
 
 def _find_duplicates(tenants: dict[str, Tenant]) -> None:
-    print("\n  ── Detectar duplicados (misma cuenta + mismo rol) ──\n")
+    print(t("maint.dupes.header"))
     found_any = False
     for tenant_name, tenant in tenants.items():
         groups: dict[tuple[str, str], list[Account]] = {}
@@ -338,30 +344,30 @@ def _find_duplicates(tenants: dict[str, Tenant]) -> None:
         found_any = True
         print(f"  {tenant_name}:")
         for (account_id, sso_role_name), accs in dup_groups.items():
-            print(f"    Cuenta {account_id} + rol '{sso_role_name}' ({len(accs)} registros):")
+            print(t("maint.dupes.group", account_id=account_id, role=sso_role_name, count=len(accs)))
             for acc in accs:
                 print(f"      - {acc.label} → {acc.sso_profile} / {acc.credentials_profile}")
         print()
 
     if not found_any:
-        print("  No se encontraron duplicados.\n")
+        print(t("maint.dupes.none"))
     else:
-        print("  Usa [4] Eliminar cuenta para quitar los registros redundantes que no quieras conservar.\n")
+        print(t("maint.dupes.hint"))
 
 
 def run(tenants: dict[str, Tenant]) -> None:
     while True:
-        print("\n  ── Mantenimiento ──\n")
-        print("  [1] Crear tenant nuevo")
-        print("  [2] Agregar cuenta/rol a un tenant existente")
-        print("  [3] Editar cuenta")
-        print("  [4] Eliminar cuenta")
-        print("  [5] Eliminar tenant")
-        print("  [6] Ver configuración actual")
-        print("  [7] Detectar duplicados (cuenta + rol)")
-        print("  [Q] Volver\n")
+        print(t("maint.menu.header"))
+        print(f"  {t('maint.menu.opt1')}")
+        print(f"  {t('maint.menu.opt2')}")
+        print(f"  {t('maint.menu.opt3')}")
+        print(f"  {t('maint.menu.opt4')}")
+        print(f"  {t('maint.menu.opt5')}")
+        print(f"  {t('maint.menu.opt6')}")
+        print(f"  {t('maint.menu.opt7')}")
+        print(f"  {t('common.back')}\n")
 
-        choice = input("  Opción: ").strip().upper()
+        choice = input(t("common.option_prompt")).strip().upper()
         if choice == "Q":
             return
         elif choice == "1":
@@ -379,4 +385,4 @@ def run(tenants: dict[str, Tenant]) -> None:
         elif choice == "7":
             _find_duplicates(tenants)
         else:
-            print("  ⚠️  Opción inválida.\n")
+            print(t("common.invalid_option"))

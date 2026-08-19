@@ -6,6 +6,7 @@ import logging
 
 from .config import Account, Tenant
 from .credentials import CREDENTIALS_FILE, export_credentials, update_credentials_file
+from .i18n import t
 from .sso import sso_login
 
 logger = logging.getLogger(__name__)
@@ -14,19 +15,19 @@ logger = logging.getLogger(__name__)
 def _select_tenant(tenants: dict[str, Tenant]):
     names = list(tenants.keys())
     if not names:
-        print("\n  ⚠️  No hay tenants configurados todavía. Usa el menú de mantenimiento para crear uno.\n")
+        print(t("login.no_tenants"))
         return None, None
 
-    print("\n  Selecciona el tenant a sincronizar:\n")
+    print(t("login.select_tenant"))
     for i, name in enumerate(names, 1):
-        print(f"  [{i}] {name}  ({len(tenants[name].accounts)} cuentas)")
+        print(t("login.tenant_row", i=i, name=name, count=len(tenants[name].accounts)))
 
     all_count = sum(len(t.accounts) for t in tenants.values())
-    print(f"\n  [A] Todos los tenants  ({all_count} cuentas)")
-    print("  [Q] Volver\n")
+    print(t("login.all_tenants", count=all_count))
+    print(f"  {t('common.back')}\n")
 
     while True:
-        choice = input("  Opción: ").strip().upper()
+        choice = input(t("common.option_prompt")).strip().upper()
         if choice == "Q":
             return None, None
         if choice == "A":
@@ -36,24 +37,24 @@ def _select_tenant(tenants: dict[str, Tenant]):
             if 0 <= idx < len(names):
                 name = names[idx]
                 return name, tenants[name]
-        print("  ⚠️  Opción inválida, intenta de nuevo.")
+        print(f"  {t('common.invalid_option_retry')}")
 
 
 def _select_accounts(tenant_name: str, tenant: Tenant) -> list[Account]:
     accounts = tenant.accounts
     if not accounts:
-        print(f"\n  ⚠️  {tenant_name} no tiene cuentas configuradas todavía.\n")
+        print(t("login.tenant_no_accounts", tenant=tenant_name))
         return []
 
-    print(f"\n  Selecciona cuentas de {tenant_name}:\n")
+    print(t("login.select_accounts", tenant=tenant_name))
     for i, acc in enumerate(accounts, 1):
         role = f" ({acc.role})" if acc.role else ""
         print(f"  [{i}] {acc.label}{role}")
-    print("\n  [A] Todas las cuentas")
-    print("  [Q] Volver\n")
+    print(t("login.all_accounts"))
+    print(f"  {t('common.back')}\n")
 
     while True:
-        choice = input("  Opción (ej: 1,3): ").strip().upper()
+        choice = input(t("login.accounts_prompt")).strip().upper()
         if choice == "Q":
             return []
         if choice == "A":
@@ -61,7 +62,7 @@ def _select_accounts(tenant_name: str, tenant: Tenant) -> list[Account]:
         indices = [c.strip() for c in choice.split(",") if c.strip()]
         if indices and all(i.isdigit() and 0 < int(i) <= len(accounts) for i in indices):
             return [accounts[int(i) - 1] for i in indices]
-        print("  ⚠️  Opción inválida, intenta de nuevo.")
+        print(f"  {t('common.invalid_option_retry')}")
 
 
 def _sync_accounts(tenant_name: str, accounts: list[Account]) -> None:
@@ -71,7 +72,7 @@ def _sync_accounts(tenant_name: str, accounts: list[Account]) -> None:
     print(f"\n┌─ {tenant_name} {'─' * max(1, 30 - len(tenant_name))}")
 
     if not sso_login(accounts[0].sso_profile):
-        print("└─ ❌ Abortado.\n")
+        print(t("login.sync_aborted"))
         return
 
     ok, fail = 0, 0
@@ -88,7 +89,7 @@ def _sync_accounts(tenant_name: str, accounts: list[Account]) -> None:
             fail += 1
 
     logger.debug("Sync %s: %d ok, %d errores", tenant_name, ok, fail)
-    print(f"└─ {ok} ok" + (f"  {fail} errores" if fail else "") + "\n")
+    print(f"└─ {ok} ok" + (t("login.sync_summary_errors", fail=fail) if fail else "") + "\n")
 
 
 def run(tenants: dict[str, Tenant]) -> None:
@@ -97,10 +98,10 @@ def run(tenants: dict[str, Tenant]) -> None:
         return
 
     if tenant_name == "ALL":
-        for name, t in tenants.items():
-            _sync_accounts(name, t.accounts)
+        for name, t_ in tenants.items():
+            _sync_accounts(name, t_.accounts)
     else:
         accounts = _select_accounts(tenant_name, tenant)
         _sync_accounts(tenant_name, accounts)
 
-    print(f"📄 Credenciales en: {CREDENTIALS_FILE}\n")
+    print(t("login.credentials_location", path=CREDENTIALS_FILE))

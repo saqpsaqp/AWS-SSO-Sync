@@ -20,10 +20,13 @@ jobs:
         run: pip install ruff
 
       - name: Syntax check
-        run: python3 -m py_compile aws_sso_sync/*.py
+        run: python3 -m py_compile aws_sso_sync/*.py aws_sso_sync/i18n/*.py aws_sso_sync/i18n/catalog/*.py
 
       - name: Lint (ruff check)
         run: ruff check .
 
       - name: Format check (ruff format)
         run: ruff format --check .
+
+      - name: i18n catalog parity check
+        run: python3 scripts/check_i18n.py

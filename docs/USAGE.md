@@ -17,6 +17,7 @@ plain JSON if you ever want to inspect or script against it:
 
 ```json
 {
+  "language": "en",
   "tenants": {
     "Adaggio": {
       "sso_region": "us-east-1",
@@ -37,20 +38,41 @@ plain JSON if you ever want to inspect or script against it:
 }
 ```
 
-The config starts empty on first run — nothing is pre-populated.
+The config starts empty on first run — nothing is pre-populated. `language`
+defaults to `"en"` if the field is missing entirely (older config files
+predating this feature).
+
+## Language
+
+The app defaults to **English**. Every menu, prompt, and message routes
+through a translation catalog (`aws_sso_sync/i18n/`); English and Spanish
+ship today. Switch anytime from the main menu: `[4] Idioma / Language`
+(that entry itself is always shown bilingually, so it's findable no matter
+which language is currently active) — pick a language and it takes effect
+immediately, no restart, and is remembered in `config.json`'s `language`
+field for next time. Want to add another language? See
+`CONTRIBUTING.md`'s "Adding a language" section.
 
 ## Main menu
 
 ```
-[1] Sincronizar credenciales (login)
-[2] Mantenimiento (tenants y cuentas)
-[3] Actualizar aplicación
-[Q] Salir
+[1] Sync credentials (login)
+[2] Maintenance (tenants and accounts)
+[3] Update application
+[4] Idioma / Language
+[Q] Exit
 ```
 
-**Ctrl+C cancela y vuelve al menú principal** desde cualquier punto — no importa qué tan adentro de un submenú o en qué campo estés (ej. a mitad de "Agregar cuenta/rol", escribiendo la etiqueta). Nada queda a medio guardar: `config.json` y `~/.aws/config` solo se escriben al completar un flujo, así que cancelar con Ctrl+C nunca deja un registro parcial.
+(Shown here in English, the default; every label is translated once you
+switch language.)
 
-## 1. Sincronizar credenciales (login)
+**Ctrl+C cancels and returns to the main menu** from anywhere — no matter
+how deep in a submenu or which field you're on (e.g. mid-way through "Add
+account/role," typing the label). Nothing is left half-saved:
+`config.json` and `~/.aws/config` are only written when a flow completes,
+so cancelling with Ctrl+C never leaves a partial entry.
+
+## 1. Sync credentials (login)
 
 1. Pick a tenant by number, or `[A]` to sync every tenant's every account.
 2. If you picked a single tenant, pick `[A]` for all its accounts, or a
@@ -68,34 +90,34 @@ The config starts empty on first run — nothing is pre-populated.
 so any manual edits/comments in that file won't survive the next run — this
 matches how the original single-file script behaved.
 
-## 2. Mantenimiento (tenants y cuentas)
+## 2. Maintenance (tenants and accounts)
 
 ```
-[1] Crear tenant nuevo
-[2] Agregar cuenta/rol a un tenant existente
-[3] Editar cuenta
-[4] Eliminar cuenta
-[5] Eliminar tenant
-[6] Ver configuración actual
-[7] Detectar duplicados (cuenta + rol)
-[Q] Volver
+[1] Create new tenant
+[2] Add account/role to an existing tenant
+[3] Edit account
+[4] Delete account
+[5] Delete tenant
+[6] View current configuration
+[7] Detect duplicates (account + role)
+[Q] Back
 ```
 
-- **Crear tenant nuevo** — asks for the SSO region, SSO start URL, and a
+- **Create new tenant** — asks for the SSO region, SSO start URL, and a
   session name (auto-suggested). Writes `[sso-session <name>]` into
   `~/.aws/config` and an empty tenant entry into `config.json`. Offers to add
   the first account right away.
-- **Agregar cuenta/rol** — offers two modes:
-  - **Descubrir cuentas y roles vía SSO (recomendado)** — reuses (or triggers)
-    an `aws sso login --sso-session <name>` for the tenant, reads the access
-    token AWS CLI just cached in `~/.aws/sso/cache/`, and calls
+- **Add account/role** — offers two modes:
+  - **Discover accounts and roles via SSO (recommended)** — reuses (or
+    triggers) an `aws sso login --sso-session <name>` for the tenant, reads
+    the access token AWS CLI just cached in `~/.aws/sso/cache/`, and calls
     `aws sso list-accounts` / `list-account-roles` to show every account and
     role the SSO portal actually grants you — the same list you'd see at
     `https://xxxx.awsapps.com/start/#/`. Pick an account, pick a role (both
     lists accept typing text to filter), and you're only asked for the
     **label** and the **profile names** (`sso_profile`/`credentials_profile`,
     auto-suggested) — account ID and IAM role name come straight from SSO.
-  - **Ingresar manualmente** — the original flow: label, role/purpose tag,
+  - **Enter manually** — the original flow: label, role/purpose tag,
     12-digit AWS account ID, and IAM role name, typed by hand. Used as the
     fallback if discovery fails (no cached/obtainable token, or the SSO API
     call errors) and for accounts you haven't logged into yet.
@@ -112,28 +134,28 @@ matches how the original single-file script behaved.
   when `Core-Networking-Env` already points at the same account+role is
   rejected as a duplicate (you'll see which existing entry it collided
   with) instead of creating a redundant second registration.
-- **Editar cuenta** — lets you change label, role tag, and
+- **Edit account** — lets you change label, role tag, and
   `credentials_profile`. Changing `sso_profile`/`account_id` requires
   deleting and recreating the account (they're tied to the provisioned
   `~/.aws/config` block).
-- **Eliminar cuenta / Eliminar tenant** — remove entries from `config.json`
+- **Delete account / Delete tenant** — remove entries from `config.json`
   only. The corresponding `[profile ...]` / `[sso-session ...]` blocks in
   `~/.aws/config` are left in place; delete them by hand if you no longer
   need them.
-- **Ver configuración actual** — prints every tenant and account currently
+- **View current configuration** — prints every tenant and account currently
   registered.
-- **Detectar duplicados** — scans every tenant's accounts for any
+- **Detect duplicates** — scans every tenant's accounts for any
   `(account_id, sso_role_name)` pair that already appears more than once
   (e.g. config edited by hand, or created before this check existed) and
   lists every entry in each group so you can pick which one(s) to remove
-  with **Eliminar cuenta**. This is a read-only report — it doesn't delete
+  with **Delete account**. This is a read-only report — it doesn't delete
   anything itself.
 
 Provisioning writes to `~/.aws/config` also rewrite that file in full via
 `configparser`, so manual comments/formatting in it won't be preserved
 across a create/edit.
 
-## 3. Actualizar aplicación
+## 3. Update application
 
 Fetches tags and fast-forwards the checkout you installed from (tracked via
 the `AWS_SSO_SYNC_HOME` environment variable set by `install.sh`'s launcher)
@@ -165,7 +187,7 @@ aws-sso-sync --logs-enabled
 Writes a detailed, timestamped log of the whole session to
 `~/.config/aws-sso-sync/logs/<timestamp>.log` — every AWS CLI subprocess
 invoked (with `--access-token` values redacted), every SSO cache file
-examined by "Descubrir cuentas y roles" and why it was accepted or skipped
+examined by "Discover accounts and roles" and why it was accepted or skipped
 (missing token, `startUrl` mismatch, expired), every write to
 `~/.aws/config`/`~/.aws/credentials`, and every top-level menu choice.
 Logging is off by default and only turns on for that invocation — it's not
@@ -178,14 +200,14 @@ tokens) is ever written to the log file.
   `PATH`. Add `export PATH="$HOME/.local/bin:$PATH"` to your shell rc file
   and open a new terminal, or re-run `./install.sh`, which prints the exact
   line for your shell.
-- **"Se requiere AWS CLI v2"** — you have AWS CLI v1 installed, or none at
+- **"AWS CLI v2 is required"** — you have AWS CLI v1 installed, or none at
   all. `aws configure export-credentials` only exists in v2; install/upgrade
   from the
   [official docs](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 - **Lost your previous `~/.aws/credentials`** — `install.sh` backs it up to
   `~/.aws/credentials.backup-<timestamp>` before anything else runs; check
   for that file next to it.
-- **"Descubrir cuentas y roles" finds nothing / keeps asking to log in** —
+- **"Discover accounts and roles" finds nothing / keeps asking to log in** —
   the SSO access token cache (`~/.aws/sso/cache/`) is keyed by start URL and
   expires (typically 8h). If it's missing/expired the tool triggers a fresh
   `aws sso login --sso-session <name>` automatically; if that also fails, or
