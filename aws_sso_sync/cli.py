@@ -26,6 +26,21 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _latest_tag(home: str) -> str | None:
+    fetch_result = subprocess.run(["git", "-C", home, "fetch", "--tags", "--quiet"], capture_output=True, text=True)
+    logger.debug("git fetch stdout: %s", fetch_result.stdout.strip())
+    logger.debug("git fetch stderr: %s", fetch_result.stderr.strip())
+
+    tag_result = subprocess.run(
+        ["git", "-C", home, "tag", "--list", "v*.*.*", "--sort=-v:refname"],
+        capture_output=True,
+        text=True,
+    )
+    tags = tag_result.stdout.split()
+    logger.debug("Tags encontrados: %r", tags)
+    return tags[0] if tags else None
+
+
 def _update() -> None:
     home = os.environ.get("AWS_SSO_SYNC_HOME")
     if not home:
@@ -34,10 +49,19 @@ def _update() -> None:
         return
 
     print("\n  🔄 Actualizando...")
-    logger.debug("git -C %s pull --ff-only", home)
-    result = subprocess.run(["git", "-C", home, "pull", "--ff-only"], capture_output=True, text=True)
-    logger.debug("git pull stdout: %s", result.stdout.strip())
-    logger.debug("git pull stderr: %s", result.stderr.strip())
+
+    tag = _latest_tag(home)
+    if not tag:
+        print("\n  ⚠️  Todavía no hay ningún release publicado (falta un tag vX.Y.Z).\n")
+        return
+
+    # Only fast-forwards to the latest published release tag, never past it -
+    # merged-but-untagged commits on master don't reach installs until
+    # someone cuts a release. See CONTRIBUTING.md's "Releasing" section.
+    logger.debug("git -C %s merge --ff-only %s", home, tag)
+    result = subprocess.run(["git", "-C", home, "merge", "--ff-only", tag], capture_output=True, text=True)
+    logger.debug("git merge stdout: %s", result.stdout.strip())
+    logger.debug("git merge stderr: %s", result.stderr.strip())
     if result.returncode != 0:
         print("\n  ❌ Falló la actualización.")
         print(f"     {(result.stderr or result.stdout).strip()}\n")
@@ -51,7 +75,7 @@ def _update() -> None:
         print(f"     {pip_result.stderr.strip()}\n")
         return
 
-    print("\n  ✅ Actualización completada.\n")
+    print(f"\n  ✅ Actualización completada ({tag}).\n")
 
 
 def main() -> None:
