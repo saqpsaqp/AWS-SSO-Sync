@@ -135,16 +135,23 @@ across a create/edit.
 
 ## 3. Actualizar aplicación
 
-Runs `git pull --ff-only` in the checkout you installed from (tracked via the
-`AWS_SSO_SYNC_HOME` environment variable set by `install.sh`'s launcher),
-then reinstalls the package in editable mode. Equivalent to running
-`./update.sh` from your checkout directory.
+Fetches tags and fast-forwards the checkout you installed from (tracked via
+the `AWS_SSO_SYNC_HOME` environment variable set by `install.sh`'s launcher)
+to the **latest published release tag** (`vX.Y.Z`) — not to whatever is at
+the tip of `master`. Then reinstalls the package in editable mode.
+Equivalent to running `./update.sh` from your checkout directory.
+
+This means commits merged to `master` don't reach installs until someone
+actually cuts a release (`git tag vX.Y.Z && git push origin vX.Y.Z`, see
+`CONTRIBUTING.md`'s "Releasing" section) — you always land exactly on a
+tagged, Release-noted version, never on unreleased work-in-progress.
 
 The menu only shows `🔄 Actualizando...` followed by `✅ Actualización
-completada` — `git`/`pip`'s own output is suppressed, not shown on screen.
-If something fails, the relevant error line is printed; run with
-`--logs-enabled` (see below) to capture the full `git pull`/`pip install`
-output for troubleshooting either way.
+completada (vX.Y.Z)` — `git`/`pip`'s own output is suppressed, not shown on
+screen. If no tag has ever been published, it says so and does nothing. If
+something fails, the relevant error line is printed; run with
+`--logs-enabled` (see below) to capture the full `git`/`pip` output for
+troubleshooting either way.
 
 If `AWS_SSO_SYNC_HOME` isn't set (e.g. you installed some other way), the
 menu tells you to run `update.sh` manually.

@@ -76,6 +76,11 @@ only one place to bump.
    creates the GitHub Release automatically, with notes generated from the
    merged PRs since the last tag — nothing further to do.
 
+Existing installs only pick this up when a user runs "Actualizar aplicación"
+(or `update.sh`) — both fast-forward to the latest `vX.Y.Z` tag, not to the
+tip of `master`. Until you tag, merged PRs sit on `master` unreleased and
+no install will fetch them.
+
 ## Local development
 
 No test suite is configured — this is an interactive CLI with no
