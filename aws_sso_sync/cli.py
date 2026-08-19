@@ -17,6 +17,10 @@ from .preflight import check_aws_cli
 
 logger = logging.getLogger(__name__)
 
+REPO_URL = "https://github.com/saqpsaqp/AWS-SSO-Sync"
+AUTHOR_WEBSITE = "saulquintero.com.co"
+LICENSE = "MIT"
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="aws-sso-sync")
@@ -54,6 +58,16 @@ def _language_menu() -> None:
         print(f"\n  ✅ {t('cli.language.saved', name=i18n.LANGUAGE_NAMES[lang])}\n")
         return
     print("\n  ⚠️  Opción inválida / Invalid option\n")
+
+
+def _about() -> None:
+    print(t("cli.about.header"))
+    print(t("cli.about.version", version=__version__))
+    print(t("cli.about.author"))
+    print(t("cli.about.website", website=AUTHOR_WEBSITE))
+    print(t("cli.about.repository", url=REPO_URL))
+    print(t("cli.about.license", license=LICENSE))
+    print()
 
 
 def _latest_tag(home: str) -> str | None:
@@ -135,13 +149,14 @@ def main() -> None:
             print(f"  {t('cli.menu.sync')}")
             print(f"  {t('cli.menu.maintenance')}")
             print(f"  {t('cli.menu.language')}")
+            print(f"  {t('cli.menu.about')}")
             print(f"  {t('cli.menu.exit')}\n")
 
             choice = input(t("common.option_prompt")).strip().upper()
             logger.debug("Menú principal -> opción=%r", choice)
             if choice == "Q":
                 print(t("cli.farewell"))
-                print("   aws-sso-sync — Saúl Quintero (saulquintero.com.co)\n")
+                print()
                 sys.exit(0)
             elif choice == "1":
                 menu_login.run(config.load())
@@ -149,6 +164,8 @@ def main() -> None:
                 menu_maintenance.run(config.load())
             elif choice == "3":
                 _language_menu()
+            elif choice == "4":
+                _about()
             else:
                 print(f"  {t('common.invalid_option_retry')}")
         except KeyboardInterrupt:
